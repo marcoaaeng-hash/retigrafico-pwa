@@ -1,11 +1,12 @@
 
-const CACHE_NAME = 'retigrafico-cache-v1';
+const CACHE_NAME = 'retigrafico-cache-v2';
 const ASSETS = [
   './',
   './index.html',
   './manifest.webmanifest',
   './icon-512.png',
-  './icon-192.png'
+  './icon-192.png',
+  'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'
 ];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS)));
@@ -16,8 +17,7 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   e.respondWith(
     caches.match(e.request).then(resp => resp || fetch(e.request).then(r => {
-      const copy = r.clone();
-      caches.open(CACHE_NAME).then(cache => cache.put(e.request, copy));
+      try { const copy = r.clone(); caches.open(CACHE_NAME).then(cache => cache.put(e.request, copy)); } catch(_){}
       return r;
     }).catch(() => caches.match('./index.html')))
   );
