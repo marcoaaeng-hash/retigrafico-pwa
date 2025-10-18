@@ -1,5 +1,5 @@
 
-const CACHE_NAME = 'retigrafico-cache-v33';
+const CACHE_NAME = 'retigrafico-cache-v35';
 const ASSETS = [
   './',
   './index.html',

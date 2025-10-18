@@ -24,13 +24,10 @@
     .grid-2{display:grid; grid-template-columns:1fr 1fr; gap:12px}
     .row{display:flex; gap:12px; flex-wrap:wrap; align-items:center}
     label{font-size:14px; color:var(--muted)}
-    input[type="number"], button{padding:10px 12px; border-radius:12px; border:1px solid #e5e7eb; font-size:14px;}
-    input[type="number"]{background:#fff; width:100%}
+    input[type="number"], input[type="text"], button{padding:10px 12px; border-radius:12px; border:1px solid #e5e7eb; font-size:14px;}
+    input[type="number"], input[type="text"]{background:#fff; width:100%}
     button{background:var(--brand); color:white; border:none; cursor:pointer}
     button.ghost{background:#fff; color:var(--brand); border:1px solid var(--brand)}
-    .seg-btns{display:flex; gap:8px; flex-wrap:wrap}
-    .seg-btns button{background:#fff; color:var(--ink); border:1px solid #e5e7eb}
-    .seg-btns button.active{border-color:var(--brand); box-shadow:0 0 0 3px rgba(14,165,233,.15)}
     table{width:100%; border-collapse:collapse;}
     th, td{padding:10px 12px; text-align:left; vertical-align:middle; border-bottom:1px solid #e5e7eb}
     thead th{font-weight:700}
@@ -61,13 +58,17 @@
       <div class="row">
         <button class="ghost" id="btnExportCSV">Exportar CSV</button>
         <button class="ghost" id="btnExportXLSX">Exportar XLSX</button>
-        <button id="btnReset">Limpar</button>
+        <button id="btnReset">Limpar Dados</button>
       </div>
     </header>
 
     <section class="card">
       <div class="grid-2">
         <div class="row" style="align-items:flex-end">
+          <div style="flex:1">
+            <label>Rodovia / UF</label>
+            <input type="text" id="rodoviaUF" placeholder="Ex.: BR-040/MG" />
+          </div>
           <div style="flex:1">
             <label>KM Inicial</label>
             <input type="number" id="kmStart" value="423" step="1" />
@@ -81,9 +82,8 @@
           </div>
         </div>
         <div>
-          <label>Sentidos incluídos</label>
-          <div class="seg-btns" id="segmentButtons"></div>
-          <p class="mini">Ative/desative os sentidos que entram em cada KM.</p>
+          <label>Sentidos (fixos)</label>
+          <p class="mini">Sul, Canteiro Central, Norte</p>
         </div>
       </div>
       <p class="mini">Layout por KM (linhas por Sentido). Toque na miniatura para ampliar; toque e segure para excluir. GPS é capturado automaticamente na hora da foto.</p>
@@ -128,30 +128,17 @@
   <div id="photoModal" class="modal hidden"><img id="photoModalImg" alt="Foto" /></div>
 
 <script>
-const ALL_SECOES = ["Sul","Canteiro Central","Norte","Marginal"];
-let state = { kmStart:423, kmEnd:432, secoesAtivas: ALL_SECOES.slice(), data:{} };
+// Somente 3 sentidos (Marginal removido)
+const ALL_SECOES = ["Sul","Canteiro Central","Norte"];
+let state = { kmStart:423, kmEnd:432, rodoviaUF:'', data:{} };
 const $ = s => document.querySelector(s);
 
-function save(){ localStorage.setItem('retigrafico_v33_layout', JSON.stringify(state)); }
-function load(){ const raw = localStorage.getItem('retigrafico_v33_layout'); if(raw){ try{ state=JSON.parse(raw);}catch(e){} }
-  if(!state.secoesAtivas) state.secoesAtivas = ALL_SECOES.slice();
+function save(){ localStorage.setItem('retigrafico_v35', JSON.stringify(state)); }
+function load(){ const raw = localStorage.getItem('retigrafico_v35'); if(raw){ try{ state=JSON.parse(raw);}catch(e){} }
+  if(!state.rodoviaUF) state.rodoviaUF='';
   ALL_SECOES.forEach(s=> state.data[s] ||= {});
 }
 
-function renderSegmentButtons(){
-  const box = $('#segmentButtons'); box.innerHTML='';
-  ALL_SECOES.forEach(s=>{
-    const active = state.secoesAtivas.includes(s);
-    const b=document.createElement('button'); b.textContent=s;
-    b.className='chip ' + (active?'active':'');
-    b.onclick=()=>{
-      const i = state.secoesAtivas.indexOf(s);
-      if(i>=0) state.secoesAtivas.splice(i,1); else state.secoesAtivas.push(s);
-      save(); renderAll();
-    };
-    box.appendChild(b);
-  });
-}
 function range(a,b){ const r=[]; const step=a<=b?1:-1; for(let i=a;i!==b+step;i+=step) r.push(i); return r; }
 function ensure(secao, km){ state.data[secao] ||= {}; state.data[secao][km] ||= {status:null, obs:'', photos:[]}; }
 function label(code){ return code===1?'Bom': code===2?'Regular': code===3?'Crítico':'—'; }
@@ -168,30 +155,18 @@ function getCurrentGPS(){
 }
 
 async function annotatePhoto(dataURL, meta){
-  const img = new Image();
-  await new Promise(r=>{ img.onload=r; img.src=dataURL; });
-  const maxW=1600, maxH=1600;
-  let w=img.width, h=img.height;
-  const ratio = Math.min(maxW/w, maxH/h, 1);
+  const img = new Image(); await new Promise(r=>{ img.onload=r; img.src=dataURL; });
+  const maxW=1600, maxH=1600; let w=img.width, h=img.height; const ratio = Math.min(maxW/w, maxH/h, 1);
   w = Math.round(w*ratio); h = Math.round(h*ratio);
   const canvas=document.createElement('canvas'); canvas.width=w; canvas.height=h;
   const ctx=canvas.getContext('2d'); ctx.drawImage(img,0,0,w,h);
   const dt = new Date(meta.ts);
-  const lines=[
-    dt.toLocaleString('pt-BR'),
-    meta.gps ? `${meta.gps.lat.toFixed(6)},${meta.gps.lon.toFixed(6)}` : 'GPS: —',
-    `Km ${meta.km} ${meta.secao.toLowerCase()}`
-  ];
+  const lines=[ dt.toLocaleString('pt-BR'), meta.gps ? `${meta.gps.lat.toFixed(6)},${meta.gps.lon.toFixed(6)}` : 'GPS: —', `Km ${meta.km} ${meta.secao.toLowerCase()}` ];
   ctx.font = Math.max(18, Math.round(w*0.03)) + 'px system-ui, -apple-system, sans-serif';
-  const pad = Math.round(w*0.02);
-  const lineH = Math.round(w*0.045);
-  const textW = Math.max(...lines.map(t=>ctx.measureText(t).width));
-  const boxW = Math.min(w - pad*2, textW + pad*2);
-  const boxH = lineH*lines.length + pad*2;
-  const x = pad, y = h - boxH - pad;
+  const pad = Math.round(w*0.02), lineH = Math.round(w*0.045); const textW = Math.max(...lines.map(t=>ctx.measureText(t).width));
+  const boxW = Math.min(w - pad*2, textW + pad*2), boxH = lineH*lines.length + pad*2, x = pad, y = h - boxH - pad;
   ctx.fillStyle = 'rgba(0,0,0,0.75)'; ctx.fillRect(x, y, boxW, boxH);
-  ctx.fillStyle = '#fff';
-  lines.forEach((t,i)=> ctx.fillText(t, x+pad, y+pad + lineH*(i+0.8)));
+  ctx.fillStyle = '#fff'; lines.forEach((t,i)=> ctx.fillText(t, x+pad, y+pad + lineH*(i+0.8)));
   return canvas.toDataURL('image/jpeg', 0.9);
 }
 
@@ -226,14 +201,14 @@ function renderTable(){
   const tbody = $('#tbody'); tbody.innerHTML='';
   const kms=range(state.kmStart, state.kmEnd);
   kms.forEach(km=>{
-    const ativos = state.secoesAtivas.slice();
-    ativos.forEach((sec, idx)=>{
+    const sentidos = ALL_SECOES.slice();
+    sentidos.forEach((sec, idx)=>{
       ensure(sec, km); const row=state.data[sec][km];
       const tr=document.createElement('tr');
       if(idx===0){
-        const kmtd=document.createElement('td'); kmtd.textContent=km; kmtd.rowSpan=ativos.length; kmtd.style.fontWeight='600'; tr.appendChild(kmtd);
+        const kmtd=document.createElement('td'); kmtd.textContent=km; kmtd.rowSpan=sentidos.length; kmtd.style.fontWeight='600'; tr.appendChild(kmtd);
       }
-      const sTd=document.createElement('td'); sTd.textContent=(sec==="Canteiro Central"?"CC":sec); tr.appendChild(sTd);
+      const sTd=document.createElement('td'); sTd.textContent=(sec=="Canteiro Central"?"CC":sec); tr.appendChild(sTd);
       const stTd=document.createElement('td'); const g=document.createElement('div'); g.className='status-btns';
       [[1,'Bom'],[2,'Regular'],[3,'Crítico']].forEach(([code,txt])=>{
         const chip=document.createElement('div'); chip.className=`chip ${cls(code)} ${row.status===code?'active':''}`;
@@ -264,21 +239,21 @@ function renderHeat(){
   });
   root.appendChild(grid);
 }
-function renderAll(){ $('#kmStart').value=state.kmStart; $('#kmEnd').value=state.kmEnd; renderSegmentButtons(); renderTable(); renderHeat(); }
+function renderAll(){ $('#kmStart').value=state.kmStart; $('#kmEnd').value=state.kmEnd; $('#rodoviaUF').value=state.rodoviaUF; renderTable(); renderHeat(); }
 
 function rowsCSV(){
   const kms=range(state.kmStart, state.kmEnd);
-  const rows=[["secao","km","status(1=Bom,2=Reg,3=Cri)","observacao","foto1","foto2","foto3"]];
+  const rows=[["rodoviaUF","secao","km","status(1=Bom,2=Reg,3=Cri)","observacao","foto1","foto2","foto3"]];
   ALL_SECOES.forEach(s=>{
     kms.forEach(km=>{
       const r=(state.data[s]||{})[km] || {status:null, obs:'', photos:[]};
       const photos=(r.photos||[]).map(p=>p.data);
-      rows.push([s, km, r.status||'', (r.obs||'').replaceAll('\"','\"\"'), photos[0]||'', photos[1]||'', photos[2]||'']);
+      rows.push([state.rodoviaUF, s, km, r.status||'', (r.obs||'').replace('"','""'), photos[0]||'', photos[1]||'', photos[2]||'']);
     });
   });
   return rows;
 }
-function exportCSV(){ const rows=rowsCSV(); const csv = rows.map(r=> r.map(v=>`"${v}"`).join(',')).join('\\n'); download(csv, 'retigrafico.csv'); }
+function exportCSV(){ const rows=rowsCSV(); const csv = rows.map(r=> r.map(v=>`"${v}"`).join(',')).join('\n'); download(csv, 'retigrafico.csv'); }
 function download(text, filename){ const blob=new Blob([text],{type:'text/plain;charset=utf-8'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href), 1000); }
 
 async function exportXLSX(){
@@ -287,29 +262,30 @@ async function exportXLSX(){
   const ws1 = wb.addWorksheet('Coleta');
   const ws2 = wb.addWorksheet('Retigrafico');
 
-  // COLETA
+  // COLETA (com fotos)
   const rows = rowsCSV();
   ws1.addRow(rows[0]);
-  [12,8,12,30,16,16,16].forEach((w,i)=> ws1.getColumn(i+1).width = w);
+  [14,12,8,12,30,16,16,16].forEach((w,i)=> ws1.getColumn(i+1).width = w);
   for(let i=1;i<rows.length;i++){
     const arr = rows[i];
-    const r = ws1.addRow(arr);
-    r.height = 72;
-    // fotos col 5..7
+    const row = ws1.addRow(arr);
+    row.height = 72;
     for(let f=0; f<3; f++){
-      const dataURL = arr[4+f];
+      const dataURL = arr[5+f];
       if(!dataURL) continue;
-      const base64 = dataURL.split(',')[1] || dataURL;
-      const imgId = wb.addImage({base64: base64, extension:'jpeg'});
-      const col = 5 + f;
-      ws1.addImage(imgId, { tl:{col: col-1 + 0.1, row: r.number-1 + 0.2}, ext:{width:96, height:68} });
+      const base64 = dataURL.includes(',') ? dataURL.split(',')[1] : dataURL;
+      const imgId = wb.addImage({base64, extension:'jpeg'});
+      const col = 6 + f;
+      ws1.addImage(imgId, { tl:{col: col-1 + 0.1, row: row.number-1 + 0.2}, ext:{width:96, height:68} });
     }
   }
 
-  // RETIGRAFICO
+  // RETIGRAFICO (cores e Rodovia/UF)
   const kms = range(state.kmStart, state.kmEnd);
+  ws2.addRow(['Rodovia/UF', state.rodoviaUF]);
+  ws2.addRow([]);
   ws2.addRow([''].concat(kms.map(k=>String(k))));
-  ws2.getRow(1).height = 22;
+  ws2.getRow(3).height = 22;
   ws2.getColumn(1).width = 16;
   kms.forEach((_,i)=> ws2.getColumn(i+2).width = 5);
 
@@ -322,7 +298,7 @@ async function exportXLSX(){
     ws2.addRow(line);
   });
 
-  for (let r=2; r<=1+ALL_SECOES.length; r++){
+  for (let r=4; r<=3+ALL_SECOES.length; r++){
     ws2.getRow(r).height = 22;
     for (let c=2; c<=1+kms.length; c++){
       const cell = ws2.getRow(r).getCell(c);
@@ -338,7 +314,7 @@ async function exportXLSX(){
     }
   }
 
-  const base = 1 + ALL_SECOES.length + 2;
+  const base = 3 + ALL_SECOES.length + 2;
   ws2.getCell(`A${base}`).value = 'Legenda';
   ws2.getCell(`C${base}`).value = '1'; ws2.getCell(`C${base}`).fill = {type:'pattern', pattern:'solid', fgColor:{argb:GREEN}};
   ws2.getCell(`E${base}`).value = '2'; ws2.getCell(`E${base}`).fill = {type:'pattern', pattern:'solid', fgColor:{argb:YELLOW}};
@@ -350,10 +326,11 @@ async function exportXLSX(){
 }
 
 function actions(){
-  document.getElementById('btnGerar').onclick=()=>{ state.kmStart=parseInt(document.getElementById('kmStart').value,10); state.kmEnd=parseInt(document.getElementById('kmEnd').value,10); save(); renderAll(); };
+  document.getElementById('btnGerar').onclick=()=>{ state.kmStart=parseInt(document.getElementById('kmStart').value,10); state.kmEnd=parseInt(document.getElementById('kmEnd').value,10); state.rodoviaUF=document.getElementById('rodoviaUF').value; save(); renderAll(); };
+  document.getElementById('rodoviaUF').onchange=()=>{ state.rodoviaUF=document.getElementById('rodoviaUF').value; save(); };
   document.getElementById('btnExportCSV').onclick=exportCSV;
   document.getElementById('btnExportXLSX').onclick=exportXLSX;
-  document.getElementById('btnReset').onclick=()=>{ if(confirm('Limpar todos os dados?')){ localStorage.removeItem('retigrafico_v33_layout'); load(); renderAll(); } };
+  document.getElementById('btnReset').onclick=()=>{ if(confirm('Apagar TODOS os dados locais?')){ localStorage.removeItem('retigrafico_v35'); load(); renderAll(); } };
 }
 
 if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js').catch(() => {}); }); }
