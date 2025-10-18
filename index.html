@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -10,45 +9,56 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Retigráfico">
   <link rel="apple-touch-icon" href="icon-512.png">
-  <!-- libs -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
   <style>
     :root{ --ok:#8BC34A; --mid:#FFEB3B; --bad:#F44336; --empty:#E0E0E0; --ink:#0f172a; --muted:#64748b; --brand:#0ea5e9; --bg:#f8fafc; --card:#ffffff; --radius:16px; }
+    *{box-sizing:border-box}
     body{font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin:0; background:var(--bg); color:var(--ink)}
-    .wrap{max-width:1200px; margin:24px auto; padding:0 16px}
-    header{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px}
-    header h1{font-size:20px; margin:0}
-    .card{background:var(--card); border-radius:var(--radius); box-shadow:0 6px 24px rgba(2,6,23,.06); padding:16px;}
-    .grid-2{display:grid; grid-template-columns:1fr 1fr; gap:12px}
-    .row{display:flex; gap:12px; flex-wrap:wrap; align-items:center}
-    label{font-size:14px; color:var(--muted)}
-    input[type="number"], input[type="text"], button{padding:10px 12px; border-radius:12px; border:1px solid #e5e7eb; font-size:14px;}
+    .wrap{max-width:1100px; margin:18px auto; padding:0 12px}
+    header{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:12px; flex-wrap:wrap}
+    header h1{font-size:22px; margin:0}
+    .card{background:var(--card); border-radius:var(--radius); box-shadow:0 6px 24px rgba(2,6,23,.06); padding:14px;}
+    .grid{display:grid; gap:10px}
+    .g-3{grid-template-columns:repeat(3, 1fr)}
+    .row{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+    label{font-size:13px; color:var(--muted); display:block; margin-bottom:6px}
+    input[type="number"], input[type="text"], button{padding:12px 12px; border-radius:14px; border:1px solid #e5e7eb; font-size:16px; line-height:1.2}
     input[type="number"], input[type="text"]{background:#fff; width:100%}
-    button{background:var(--brand); color:white; border:none; cursor:pointer}
+    button{background:var(--brand); color:white; border:none; cursor:pointer; white-space:nowrap}
     button.ghost{background:#fff; color:var(--brand); border:1px solid var(--brand)}
+    button.bad{background:#ef4444}
+    button.warn{background:#f59e0b; color:#1f2937; border:1px solid #f59e0b;}
+    @media (max-width:640px){
+      .g-3{grid-template-columns:1fr}
+      header{gap:6px}
+      input[type="number"], input[type="text"]{font-size:18px}
+    }
     table{width:100%; border-collapse:collapse;}
-    th, td{padding:10px 12px; text-align:left; vertical-align:middle; border-bottom:1px solid #e5e7eb}
+    th, td{padding:10px 10px; text-align:left; vertical-align:middle; border-bottom:1px solid #e5e7eb; font-size:14px}
     thead th{font-weight:700}
+    .table-actions{display:flex; gap:8px; margin:-8px 0 10px 0; flex-wrap:wrap}
     .status-btns{display:flex; gap:8px}
-    .chip{padding:6px 10px; border-radius:999px; border:2px solid transparent; cursor:pointer; user-select:none; font-weight:600}
+    .chip{padding:6px 10px; border-radius:999px; border:2px solid transparent; cursor:pointer; user-select:none; font-weight:600; font-size:13px}
     .chip.ok{background:#e6f4d8; border-color:#8BC34A; color:#2a4913}
     .chip.mid{background:#fff9c4; border-color:#FFEB3B; color:#7a6b00}
     .chip.bad{background:#ffdad6; border-color:#F44336; color:#7a0000}
     .chip.active{box-shadow: inset 0 0 0 2px #00000020}
     .mini{font-size:12px; color:#475569}
-    .photo-thumb{width:52px; height:52px; object-fit:cover; border-radius:8px; border:1px solid #e5e7eb; cursor:pointer}
+    .photo-thumb{width:56px; height:56px; object-fit:cover; border-radius:8px; border:1px solid #e5e7eb; cursor:pointer}
     .thumbs{display:flex; gap:6px; flex-wrap:wrap}
     .heat{overflow:auto; margin-top:12px}
     .heat-grid{display:grid; gap:2px}
-    .legend{display:flex; gap:12px; align-items:center; margin-top:10px; color:#475569}
+    .legend{display:flex; gap:12px; align-items:center; margin-top:10px; color:#475569; flex-wrap:wrap}
     .legend .box{width:14px; height:14px; border-radius:3px; display:inline-block}
     .sticky-col{position:sticky; left:0; background:var(--bg); z-index:2; padding-right:6px}
     footer{color:#64748b; font-size:12px; margin:16px 0; text-align:center}
     .modal{position:fixed; inset:0; background:rgba(0,0,0,.85); display:flex; align-items:center; justify-content:center; z-index:50}
     .modal.hidden{display:none}
     .modal img{max-width:92vw; max-height:92vh; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.4)}
+    .bar{height:10px; border-radius:6px; background:#e5e7eb; overflow:hidden; width:220px}
+    .bar > span{display:block; height:100%}
   </style>
 </head>
 <body>
@@ -58,39 +68,40 @@
       <div class="row">
         <button class="ghost" id="btnExportCSV">Exportar CSV</button>
         <button class="ghost" id="btnExportXLSX">Exportar XLSX</button>
-        <button id="btnReset">Limpar Dados</button>
+        <button class="bad" id="btnReset">Limpar Dados</button>
       </div>
     </header>
 
     <section class="card">
-      <div class="grid-2">
-        <div class="row" style="align-items:flex-end">
-          <div style="flex:1">
-            <label>Rodovia / UF</label>
-            <input type="text" id="rodoviaUF" placeholder="Ex.: BR-040/MG" />
-          </div>
-          <div style="flex:1">
-            <label>KM Inicial</label>
-            <input type="number" id="kmStart" value="423" step="1" />
-          </div>
-          <div style="flex:1">
-            <label>KM Final</label>
-            <input type="number" id="kmEnd" value="432" step="1" />
-          </div>
-          <div>
-            <button id="btnGerar">Gerar tabela</button>
-          </div>
+      <div class="grid g-3">
+        <div>
+          <label>Rodovia / UF</label>
+          <input type="text" id="rodoviaUF" placeholder="Ex.: BR-040/MG" />
         </div>
         <div>
-          <label>Sentidos (fixos)</label>
-          <p class="mini">Sul, Canteiro Central, Norte</p>
+          <label>KM Inicial</label>
+          <input type="number" id="kmStart" value="423" step="1" />
+        </div>
+        <div>
+          <label>KM Final</label>
+          <input type="number" id="kmEnd" value="432" step="1" />
         </div>
       </div>
-      <p class="mini">Layout por KM (linhas por Sentido). Toque na miniatura para ampliar; toque e segure para excluir. GPS é capturado automaticamente na hora da foto.</p>
+      <div class="row" style="margin-top:10px">
+        <button id="btnGerar">Gerar tabela</button>
+        <span class="mini">Sentidos fixos: Sul, Canteiro Central, Norte</span>
+      </div>
+      <p class="mini" style="margin-top:6px">Toque na miniatura para ampliar; toque e segure para excluir. GPS é capturado automaticamente na hora da foto.</p>
     </section>
 
     <section class="card" style="margin-top:12px">
-      <h2 style="font-size:16px; margin:0 0 8px 0">Coleta de campo</h2>
+      <div class="row" style="justify-content:space-between; align-items:center; margin-bottom:4px">
+        <h2 style="font-size:16px; margin:0">Coleta de campo</h2>
+        <div class="table-actions">
+          <button class="warn" id="btnMarkAllGood">Marcar tudo Bom</button>
+          <button class="bad" id="btnClearAll">Limpar</button>
+        </div>
+      </div>
       <div style="overflow:auto">
         <table>
           <thead>
@@ -113,6 +124,7 @@
         <span class="mini">1=Bom (verde), 2=Regular (amarelo), 3=Crítico (vermelho)</span>
       </div>
       <div class="heat" id="heat"></div>
+      <div id="stats" class="legend" style="margin-top:12px"></div>
       <div class="legend">
         <span><span class="box" style="background:#8BC34A"></span> 1 (Bom)</span>
         <span><span class="box" style="background:#FFEB3B"></span> 2 (Regular)</span>
@@ -124,19 +136,23 @@
     <footer>PWA: Instale na Tela de Início e use offline.</footer>
   </div>
 
-  <!-- Modal foto -->
   <div id="photoModal" class="modal hidden"><img id="photoModalImg" alt="Foto" /></div>
 
 <script>
-// Somente 3 sentidos (Marginal removido)
 const ALL_SECOES = ["Sul","Canteiro Central","Norte"];
 let state = { kmStart:423, kmEnd:432, rodoviaUF:'', data:{} };
 const $ = s => document.querySelector(s);
 
-function save(){ localStorage.setItem('retigrafico_v35', JSON.stringify(state)); }
-function load(){ const raw = localStorage.getItem('retigrafico_v35'); if(raw){ try{ state=JSON.parse(raw);}catch(e){} }
+function save(){ localStorage.setItem('retigrafico_v36', JSON.stringify(state)); }
+function load(){ const raw = localStorage.getItem('retigrafico_v36'); if(raw){ try{ state=JSON.parse(raw);}catch(e){} }
   if(!state.rodoviaUF) state.rodoviaUF='';
   ALL_SECOES.forEach(s=> state.data[s] ||= {});
+}
+function clearAll(){
+  if(confirm('Apagar TODOS os dados (status, fotos, observações e retigráfico)?')){
+    localStorage.removeItem('retigrafico_v36');
+    load(); renderAll();
+  }
 }
 
 function range(a,b){ const r=[]; const step=a<=b?1:-1; for(let i=a;i!==b+step;i+=step) r.push(i); return r; }
@@ -184,11 +200,9 @@ async function handlePhotoInput(e, row, secao, km){
   reader.readAsDataURL(file);
 }
 
-// Modal
 function openModal(src){ $('#photoModalImg').src = src; $('#photoModal').classList.remove('hidden'); }
 function closeModal(){ $('#photoModal').classList.add('hidden'); }
 document.getElementById('photoModal').onclick = closeModal;
-
 function bindThumbInteractions(imgEl, onDelete){
   let timer=null, longPressed=false;
   const start = ()=>{ longPressed=false; timer=setTimeout(()=>{ longPressed=true; if(confirm('Excluir esta foto?')) onDelete(); }, 600); };
@@ -239,7 +253,39 @@ function renderHeat(){
   });
   root.appendChild(grid);
 }
-function renderAll(){ $('#kmStart').value=state.kmStart; $('#kmEnd').value=state.kmEnd; $('#rodoviaUF').value=state.rodoviaUF; renderTable(); renderHeat(); }
+
+function computeStats(){
+  const kms=range(state.kmStart, state.kmEnd);
+  let total=0, b=0, m=0, c=0;
+  ALL_SECOES.forEach(sec=>{
+    kms.forEach(km=>{
+      ensure(sec, km);
+      const v=state.data[sec][km].status;
+      if(v) total++;
+      if(v===1) b++; else if(v===2) m++; else if(v===3) c++;
+    });
+  });
+  return {total, b, m, c, pb: total?Math.round(b*100/total):0, pm: total?Math.round(m*100/total):0, pc: total?Math.round(c*100/total):0};
+}
+function renderStats(){
+  const s=computeStats();
+  const el=$('#stats'); el.innerHTML='';
+  const make = (label,color,pct)=>{
+    const wrap=document.createElement('div'); wrap.className='row'; wrap.style.alignItems='center';
+    const tag=document.createElement('span'); tag.innerHTML = `<span class="box" style="background:${color}"></span> ${label}: <b>${pct}%</b>`;
+    tag.style.minWidth='120px';
+    const bar=document.createElement('div'); bar.className='bar'; const fill=document.createElement('span'); fill.style.background=color; fill.style.width=pct+'%'; bar.appendChild(fill);
+    wrap.appendChild(tag); wrap.appendChild(bar); return wrap;
+  };
+  el.appendChild(make('Bom', '#8BC34A', s.pb));
+  el.appendChild(make('Regular', '#FFEB3B', s.pm));
+  el.appendChild(make('Crítico', '#F44336', s.pc));
+}
+
+function renderAll(){
+  $('#kmStart').value=state.kmStart; $('#kmEnd').value=state.kmEnd; $('#rodoviaUF').value=state.rodoviaUF;
+  renderTable(); renderHeat(); renderStats();
+}
 
 function rowsCSV(){
   const kms=range(state.kmStart, state.kmEnd);
@@ -262,7 +308,6 @@ async function exportXLSX(){
   const ws1 = wb.addWorksheet('Coleta');
   const ws2 = wb.addWorksheet('Retigrafico');
 
-  // COLETA (com fotos)
   const rows = rowsCSV();
   ws1.addRow(rows[0]);
   [14,12,8,12,30,16,16,16].forEach((w,i)=> ws1.getColumn(i+1).width = w);
@@ -280,10 +325,8 @@ async function exportXLSX(){
     }
   }
 
-  // RETIGRAFICO (cores e Rodovia/UF)
   const kms = range(state.kmStart, state.kmEnd);
-  ws2.addRow(['Rodovia/UF', state.rodoviaUF]);
-  ws2.addRow([]);
+  ws2.addRow(['Rodovia/UF', state.rodoviaUF]); ws2.addRow([]);
   ws2.addRow([''].concat(kms.map(k=>String(k))));
   ws2.getRow(3).height = 22;
   ws2.getColumn(1).width = 16;
@@ -316,9 +359,9 @@ async function exportXLSX(){
 
   const base = 3 + ALL_SECOES.length + 2;
   ws2.getCell(`A${base}`).value = 'Legenda';
-  ws2.getCell(`C${base}`).value = '1'; ws2.getCell(`C${base}`).fill = {type:'pattern', pattern:'solid', fgColor:{argb:GREEN}};
-  ws2.getCell(`E${base}`).value = '2'; ws2.getCell(`E${base}`).fill = {type:'pattern', pattern:'solid', fgColor:{argb:YELLOW}};
-  ws2.getCell(`G${base}`).value = '3'; ws2.getCell(`G${base}`).fill = {type:'pattern', pattern:'solid', fgColor:{argb:RED}};
+  ws2.getCell(`C${base}`).value = '1'; ws2.getCell(`C${base}`).fill = {type:'pattern', pattern:'solid', fgColor:{argb:'8BC34A'}};
+  ws2.getCell(`E${base}`).value = '2'; ws2.getCell(`E${base}`).fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFEB3B'}};
+  ws2.getCell(`G${base}`).value = '3'; ws2.getCell(`G${base}`).fill = {type:'pattern', pattern:'solid', fgColor:{argb:'F44336'}};
   ws2.getCell(`C${base+1}`).value = 'Bom'; ws2.getCell(`E${base+1}`).value = 'Regular'; ws2.getCell(`G${base+1}`).value = 'Crítico';
 
   const buf = await wb.xlsx.writeBuffer();
@@ -330,7 +373,13 @@ function actions(){
   document.getElementById('rodoviaUF').onchange=()=>{ state.rodoviaUF=document.getElementById('rodoviaUF').value; save(); };
   document.getElementById('btnExportCSV').onclick=exportCSV;
   document.getElementById('btnExportXLSX').onclick=exportXLSX;
-  document.getElementById('btnReset').onclick=()=>{ if(confirm('Apagar TODOS os dados locais?')){ localStorage.removeItem('retigrafico_v35'); load(); renderAll(); } };
+  document.getElementById('btnReset').onclick=clearAll;
+  document.getElementById('btnClearAll').onclick=clearAll;
+  document.getElementById('btnMarkAllGood').onclick=()=>{
+    const kms=range(state.kmStart, state.kmEnd);
+    ALL_SECOES.forEach(s=> kms.forEach(km=>{ ensure(s,km); state.data[s][km].status=1; }));
+    save(); renderAll();
+  };
 }
 
 if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js').catch(() => {}); }); }
