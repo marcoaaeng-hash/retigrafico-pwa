@@ -1,0 +1,201 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Retigráfico de Roçada</title>
+
+  <!-- PWA manifest & iOS meta -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Retigráfico">
+  <link rel="apple-touch-icon" href="icon-512.png">
+
+  <style>
+    :root{
+      --ok:#8BC34A;     /* Bom */
+      --mid:#FFEB3B;    /* Regular */
+      --bad:#F44336;    /* Crítico */
+      --empty:#E0E0E0;  /* Sem dado */
+      --ink:#0f172a;
+      --muted:#64748b;
+      --brand:#0ea5e9;
+      --bg:#f8fafc;
+      --card:#ffffff;
+      --radius:16px;
+    }
+    body{font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji", "Segoe UI Emoji"; margin:0; background:var(--bg); color:var(--ink)}
+    .wrap{max-width:1100px; margin:24px auto; padding:0 16px}
+    header{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px}
+    header h1{font-size:20px; margin:0}
+    .card{background:var(--card); border-radius:var(--radius); box-shadow:0 6px 24px rgba(2,6,23,.06); padding:16px;}
+    .grid-2{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+    .row{display:flex; gap:12px; flex-wrap:wrap; align-items:center}
+    label{font-size:14px; color:var(--muted)}
+    input[type="number"], button{padding:10px 12px; border-radius:12px; border:1px solid #e5e7eb; font-size:14px;}
+    input[type="number"]{background:#fff; width:100%}
+    button{background:var(--brand); color:white; border:none; cursor:pointer}
+    button.ghost{background:#fff; color:var(--brand); border:1px solid var(--brand)}
+    .seg-btns{display:flex; gap:8px; flex-wrap:wrap}
+    .seg-btns button{background:#fff; color:var(--ink); border:1px solid #e5e7eb}
+    .seg-btns button.active{border-color:var(--brand); box-shadow:0 0 0 3px rgba(14,165,233,.15)}
+
+    table{width:100%; border-collapse:separate; border-spacing:0 6px;}
+    th, td{padding:10px 12px; text-align:left}
+    thead th{font-size:12px; color:#475569}
+    tbody tr{background:#fff;}
+    tbody td:first-child{border-top-left-radius:12px; border-bottom-left-radius:12px}
+    tbody td:last-child{border-top-right-radius:12px; border-bottom-right-radius:12px}
+    .status-btns{display:flex; gap:8px}
+    .chip{padding:6px 10px; border-radius:999px; border:1px solid #e5e7eb; cursor:pointer; user-select:none}
+    .chip.ok{background:color-mix(in oklab, var(--ok) 22%, white); border-color:var(--ok)}
+    .chip.mid{background:color-mix(in oklab, var(--mid) 22%, white); border-color:var(--mid)}
+    .chip.bad{background:color-mix(in oklab, var(--bad) 22%, white); border-color:var(--bad)}
+    .chip.active{box-shadow: inset 0 0 0 2px #00000020}
+
+    .heat{overflow:auto;}
+    .heat-grid{display:grid; gap:2px}
+    .legend{display:flex; gap:12px; align-items:center; margin-top:10px; color:#475569}
+    .legend .box{width:14px; height:14px; border-radius:3px; display:inline-block}
+    .sticky-col{position:sticky; left:0; background:var(--bg); z-index:2; padding-right:6px}
+    .mini{font-size:12px; color:#475569}
+    footer{color:#64748b; font-size:12px; margin:16px 0; text-align:center}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Retigráfico de Roçada</h1>
+      <div class="row">
+        <button class="ghost" id="btnExportCSV" title="Exportar CSV">Exportar CSV</button>
+        <button class="ghost" id="btnExportJSON" title="Exportar JSON">Exportar JSON</button>
+        <button class="ghost" id="btnImportJSON" title="Importar JSON">Importar</button>
+        <button id="btnReset">Limpar</button>
+      </div>
+    </header>
+
+    <section class="card" aria-label="config">
+      <div class="grid-2">
+        <div>
+          <label>Sentido/Seção</label>
+          <div class="seg-btns" id="segmentButtons"></div>
+        </div>
+        <div class="row" style="align-items:flex-end">
+          <div style="flex:1">
+            <label>KM Inicial</label>
+            <input type="number" id="kmStart" value="423" step="1" />
+          </div>
+          <div style="flex:1">
+            <label>KM Final</label>
+            <input type="number" id="kmEnd" value="432" step="1" />
+          </div>
+          <div>
+            <button id="btnGerar">Gerar tabela</button>
+          </div>
+        </div>
+      </div>
+      <p class="mini">Dica: altere os KMs quando quiser. Dados salvos no aparelho.</p>
+    </section>
+
+    <section class="card" style="margin-top:12px">
+      <div class="row" style="justify-content:space-between">
+        <h2 style="font-size:16px; margin:0">Coleta de campo</h2>
+        <div class="row">
+          <button class="ghost" id="btnMarcarOk">Marcar tudo Bom</button>
+          <button class="ghost" id="btnMarcarVazio">Limpar</button>
+        </div>
+      </div>
+      <div style="overflow:auto">
+        <table>
+          <thead>
+            <tr>
+              <th style="min-width:80px">KM</th>
+              <th>Status</th>
+              <th>Observação (opcional)</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card" style="margin-top:12px">
+      <div class="row" style="justify-content:space-between; align-items:baseline">
+        <h2 style="font-size:16px; margin:0">Retigráfico automático</h2>
+        <span class="mini">Geração com base nas coletas</span>
+      </div>
+      <div class="heat" id="heat"></div>
+      <div class="legend">
+        <span><span class="box" style="background:var(--ok)"></span> Bom</span>
+        <span><span class="box" style="background:var(--mid)"></span> Regular</span>
+        <span><span class="box" style="background:var(--bad)"></span> Crítico</span>
+        <span><span class="box" style="background:var(--empty)"></span> Sem dado</span>
+      </div>
+    </section>
+
+    <footer>PWA: Instale na Tela de Início e use offline.</footer>
+  </div>
+
+<script>
+const SECOES = ["Norte", "Sul", "Canteiro Central", "Marginal"];
+let state = { kmStart:423, kmEnd:432, secao:SECOES[0], data:{} };
+
+function save(){ localStorage.setItem('retigrafico_v1', JSON.stringify(state)); }
+function load(){ const raw = localStorage.getItem('retigrafico_v1'); if(raw){ try{ state=JSON.parse(raw);}catch(e){} } SECOES.forEach(s=> state.data[s] ||= {}); }
+const $ = s => document.querySelector(s); const tbody = $('#tbody');
+
+function renderSegmentButtons(){
+  const box = $('#segmentButtons'); box.innerHTML='';
+  SECOES.forEach(s=>{
+    const b=document.createElement('button'); b.textContent=s;
+    b.className='chip ' + (state.secao===s?'active':''); b.onclick=()=>{ state.secao=s; save(); renderAll(); };
+    box.appendChild(b);
+  });
+}
+function range(a,b){ const r=[]; const step=a<=b?1:-1; for(let i=a;i!==b+step;i+=step) r.push(i); return r; }
+function ensure(secao, km){ state.data[secao] ||= {}; state.data[secao][km] ||= {status:null, obs:''}; }
+function label(code){ return code==='ok'?'Bom': code==='mid'?'Regular': code==='bad'?'Crítico':'—'; }
+function cls(code){ return code==='ok'?'ok': code==='mid'?'mid': code==='bad'?'bad':''; }
+
+function renderTable(){
+  tbody.innerHTML=''; const kms=range(state.kmStart, state.kmEnd);
+  kms.forEach(km=>{
+    ensure(state.secao, km); const row=state.data[state.secao][km];
+    const tr=document.createElement('tr');
+    const c1=document.createElement('td'); c1.textContent=km; c1.style.fontWeight='600';
+    const c2=document.createElement('td');
+    const g=document.createElement('div'); g.className='status-btns';
+    [['ok','Bom'],['mid','Regular'],['bad','Crítico']].forEach(([code,txt])=>{
+      const chip=document.createElement('div'); chip.className=`chip ${cls(code)} ${row.status===code?'active':''}`;
+      chip.textContent=txt; chip.onclick=()=>{ row.status=(row.status===code?null:code); save(); renderAll(); };
+      g.appendChild(chip);
+    });
+    c2.appendChild(g);
+    const c3=document.createElement('td'); const inp=document.createElement('input'); inp.type='text'; inp.placeholder='Observação'; inp.value=row.obs||''; inp.style.width='100%'; inp.onchange=()=>{ row.obs=inp.value; save(); };
+    c3.appendChild(inp);
+    tr.appendChild(c1); tr.appendChild(c2); tr.appendChild(c3); tbody.appendChild(tr);
+  });
+}
+function renderHeat(){ const root=$('#heat'); root.innerHTML=''; const kms=range(state.kmStart, state.kmEnd); const grid=document.createElement('div'); grid.className='heat-grid'; grid.style.gridTemplateColumns=`120px repeat(${kms.length}, 28px)`; const h0=document.createElement('div'); h0.className='sticky-col mini'; grid.appendChild(h0); kms.forEach(km=>{ const c=document.createElement('div'); c.className='mini'; c.style.textAlign='center'; c.textContent=km; grid.appendChild(c); }); SECOES.forEach(sec=>{ const lab=document.createElement('div'); lab.className='sticky-col'; lab.textContent=sec; grid.appendChild(lab); kms.forEach(km=>{ ensure(sec, km); const st=state.data[sec][km].status; const cell=document.createElement('div'); cell.title=`${sec} • km ${km} • ${label(st)}`; cell.style.width='28px'; cell.style.height='24px'; cell.style.borderRadius='4px'; cell.style.background= st==='ok'?'var(--ok)': st==='mid'?'var(--mid)': st==='bad'?'var(--bad)':'var(--empty)'; grid.appendChild(cell); }); }); root.appendChild(grid); }
+function renderAll(){ $('#kmStart').value=state.kmStart; $('#kmEnd').value=state.kmEnd; renderSegmentButtons(); renderTable(); renderHeat(); }
+
+function exportCSV(){ const kms=range(state.kmStart,state.kmEnd); const rows=[["secao","km","status","observacao"]]; SECOES.forEach(s=>{ kms.forEach(km=>{ const r=(state.data[s]||{})[km] || {status:null,obs:''}; rows.push([s,km,label(r.status),(r.obs||'').replaceAll('"','""')]); }); }); const csv=rows.map(r=>r.map(v=>`"${v}"`).join(',')).join('\n'); download(csv,'retigrafico.csv'); }
+function exportJSON(){ download(JSON.stringify(state,null,2),'retigrafico.json'); }
+function importJSON(){ const inp=document.createElement('input'); inp.type='file'; inp.accept='.json,application/json'; inp.onchange=e=>{ const f=e.target.files[0]; if(!f) return; const rd=new FileReader(); rd.onload=()=>{ try{ state=JSON.parse(rd.result); save(); renderAll(); }catch(e){ alert('JSON inválido'); } }; rd.readAsText(f); }; inp.click(); }
+function download(text, filename){ const blob=new Blob([text],{type:'text/plain;charset=utf-8'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href), 1000); }
+
+function actions(){ $('#btnGerar').onclick=()=>{ state.kmStart=parseInt($('#kmStart').value,10); state.kmEnd=parseInt($('#kmEnd').value,10); save(); renderAll(); }; $('#btnMarcarOk').onclick=()=>{ range(state.kmStart,state.kmEnd).forEach(km=>{ ensure(state.secao,km); state.data[state.secao][km].status='ok'; }); save(); renderAll(); }; $('#btnMarcarVazio').onclick=()=>{ range(state.kmStart,state.kmEnd).forEach(km=>{ ensure(state.secao,km); state.data[state.secao][km].status=null; state.data[state.secao][km].obs=''; }); save(); renderAll(); }; $('#btnExportCSV').onclick=exportCSV; $('#btnExportJSON').onclick=exportJSON; $('#btnImportJSON').onclick=importJSON; $('#btnReset').onclick=()=>{ if(confirm('Limpar todos os dados?')){ localStorage.removeItem('retigrafico_v1'); load(); renderAll(); } }; }
+
+// Register service worker for offline cache
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  });
+}
+
+load(); actions(); renderAll();
+</script>
+</body>
+</html>
