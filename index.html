@@ -10,7 +10,10 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Retigráfico">
   <link rel="apple-touch-icon" href="icon-512.png">
+  <!-- libs -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
   <style>
     :root{ --ok:#8BC34A; --mid:#FFEB3B; --bad:#F44336; --empty:#E0E0E0; --ink:#0f172a; --muted:#64748b; --brand:#0ea5e9; --bg:#f8fafc; --card:#ffffff; --radius:16px; }
     body{font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin:0; background:var(--bg); color:var(--ink)}
@@ -28,27 +31,27 @@
     .seg-btns{display:flex; gap:8px; flex-wrap:wrap}
     .seg-btns button{background:#fff; color:var(--ink); border:1px solid #e5e7eb}
     .seg-btns button.active{border-color:var(--brand); box-shadow:0 0 0 3px rgba(14,165,233,.15)}
-    table{width:100%; border-collapse:separate; border-spacing:0 6px;}
-    th, td{padding:10px 12px; text-align:left; vertical-align:middle}
-    thead th{font-size:12px; color:#475569}
-    tbody tr{background:#fff;}
-    tbody td:first-child{border-top-left-radius:12px; border-bottom-left-radius:12px}
-    tbody td:last-child{border-top-right-radius:12px; border-bottom-right-radius:12px}
+    table{width:100%; border-collapse:collapse;}
+    th, td{padding:10px 12px; text-align:left; vertical-align:middle; border-bottom:1px solid #e5e7eb}
+    thead th{font-weight:700}
     .status-btns{display:flex; gap:8px}
-    .chip{padding:6px 10px; border-radius:999px; border:1px solid #e5e7eb; cursor:pointer; user-select:none}
-    .chip.ok{background:color-mix(in oklab, var(--ok) 22%, white); border-color:var(--ok)}
-    .chip.mid{background:color-mix(in oklab, var(--mid) 22%, white); border-color:var(--mid)}
-    .chip.bad{background:color-mix(in oklab, var(--bad) 22%, white); border-color:var(--bad)}
+    .chip{padding:6px 10px; border-radius:999px; border:2px solid transparent; cursor:pointer; user-select:none; font-weight:600}
+    .chip.ok{background:#e6f4d8; border-color:#8BC34A; color:#2a4913}
+    .chip.mid{background:#fff9c4; border-color:#FFEB3B; color:#7a6b00}
+    .chip.bad{background:#ffdad6; border-color:#F44336; color:#7a0000}
     .chip.active{box-shadow: inset 0 0 0 2px #00000020}
     .mini{font-size:12px; color:#475569}
-    .photo-thumb{width:52px; height:52px; object-fit:cover; border-radius:8px; border:1px solid #e5e7eb}
+    .photo-thumb{width:52px; height:52px; object-fit:cover; border-radius:8px; border:1px solid #e5e7eb; cursor:pointer}
     .thumbs{display:flex; gap:6px; flex-wrap:wrap}
-    .heat{overflow:auto;}
+    .heat{overflow:auto; margin-top:12px}
     .heat-grid{display:grid; gap:2px}
     .legend{display:flex; gap:12px; align-items:center; margin-top:10px; color:#475569}
     .legend .box{width:14px; height:14px; border-radius:3px; display:inline-block}
     .sticky-col{position:sticky; left:0; background:var(--bg); z-index:2; padding-right:6px}
     footer{color:#64748b; font-size:12px; margin:16px 0; text-align:center}
+    .modal{position:fixed; inset:0; background:rgba(0,0,0,.85); display:flex; align-items:center; justify-content:center; z-index:50}
+    .modal.hidden{display:none}
+    .modal img{max-width:92vw; max-height:92vh; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.4)}
   </style>
 </head>
 <body>
@@ -64,10 +67,6 @@
 
     <section class="card">
       <div class="grid-2">
-        <div>
-          <label>Sentido/Seção</label>
-          <div class="seg-btns" id="segmentButtons"></div>
-        </div>
         <div class="row" style="align-items:flex-end">
           <div style="flex:1">
             <label>KM Inicial</label>
@@ -81,23 +80,23 @@
             <button id="btnGerar">Gerar tabela</button>
           </div>
         </div>
+        <div>
+          <label>Sentidos incluídos</label>
+          <div class="seg-btns" id="segmentButtons"></div>
+          <p class="mini">Ative/desative os sentidos que entram em cada KM.</p>
+        </div>
       </div>
-      <p class="mini">GPS é capturado automaticamente ao tirar a foto. Até 3 fotos por KM.</p>
+      <p class="mini">Layout por KM (linhas por Sentido). Toque na miniatura para ampliar; toque e segure para excluir. GPS é capturado automaticamente na hora da foto.</p>
     </section>
 
     <section class="card" style="margin-top:12px">
-      <div class="row" style="justify-content:space-between">
-        <h2 style="font-size:16px; margin:0">Coleta de campo</h2>
-        <div class="row">
-          <button class="ghost" id="btnMarcarOk">Marcar tudo Bom</button>
-          <button class="ghost" id="btnMarcarVazio">Limpar</button>
-        </div>
-      </div>
+      <h2 style="font-size:16px; margin:0 0 8px 0">Coleta de campo</h2>
       <div style="overflow:auto">
         <table>
           <thead>
             <tr>
-              <th style="min-width:64px">KM</th>
+              <th style="min-width:64px">km</th>
+              <th>Sentido</th>
               <th>Status</th>
               <th>Foto</th>
               <th>Observação</th>
@@ -115,29 +114,41 @@
       </div>
       <div class="heat" id="heat"></div>
       <div class="legend">
-        <span><span class="box" style="background:var(--ok)"></span> 1 (Bom)</span>
-        <span><span class="box" style="background:var(--mid)"></span> 2 (Regular)</span>
-        <span><span class="box" style="background:var(--bad)"></span> 3 (Crítico)</span>
-        <span><span class="box" style="background:var(--empty)"></span> Sem dado</span>
+        <span><span class="box" style="background:#8BC34A"></span> 1 (Bom)</span>
+        <span><span class="box" style="background:#FFEB3B"></span> 2 (Regular)</span>
+        <span><span class="box" style="background:#F44336"></span> 3 (Crítico)</span>
+        <span><span class="box" style="background:#E0E0E0"></span> Sem dado</span>
       </div>
     </section>
 
     <footer>PWA: Instale na Tela de Início e use offline.</footer>
   </div>
 
+  <!-- Modal foto -->
+  <div id="photoModal" class="modal hidden"><img id="photoModalImg" alt="Foto" /></div>
+
 <script>
-const SECOES = ["Norte", "Sul", "Canteiro Central", "Marginal"];
-let state = { kmStart:423, kmEnd:432, secao:SECOES[0], data:{} };
+const ALL_SECOES = ["Sul","Canteiro Central","Norte","Marginal"];
+let state = { kmStart:423, kmEnd:432, secoesAtivas: ALL_SECOES.slice(), data:{} };
 const $ = s => document.querySelector(s);
 
-function save(){ localStorage.setItem('retigrafico_v32', JSON.stringify(state)); }
-function load(){ const raw = localStorage.getItem('retigrafico_v32'); if(raw){ try{ state=JSON.parse(raw);}catch(e){} } SECOES.forEach(s=> state.data[s] ||= {}); }
+function save(){ localStorage.setItem('retigrafico_v33_layout', JSON.stringify(state)); }
+function load(){ const raw = localStorage.getItem('retigrafico_v33_layout'); if(raw){ try{ state=JSON.parse(raw);}catch(e){} }
+  if(!state.secoesAtivas) state.secoesAtivas = ALL_SECOES.slice();
+  ALL_SECOES.forEach(s=> state.data[s] ||= {});
+}
 
 function renderSegmentButtons(){
   const box = $('#segmentButtons'); box.innerHTML='';
-  SECOES.forEach(s=>{
+  ALL_SECOES.forEach(s=>{
+    const active = state.secoesAtivas.includes(s);
     const b=document.createElement('button'); b.textContent=s;
-    b.className='chip ' + (state.secao===s?'active':''); b.onclick=()=>{ state.secao=s; save(); renderAll(); };
+    b.className='chip ' + (active?'active':'');
+    b.onclick=()=>{
+      const i = state.secoesAtivas.indexOf(s);
+      if(i>=0) state.secoesAtivas.splice(i,1); else state.secoesAtivas.push(s);
+      save(); renderAll();
+    };
     box.appendChild(b);
   });
 }
@@ -146,7 +157,6 @@ function ensure(secao, km){ state.data[secao] ||= {}; state.data[secao][km] ||= 
 function label(code){ return code===1?'Bom': code===2?'Regular': code===3?'Crítico':'—'; }
 function cls(code){ return code===1?'ok': code===2?'mid': code===3?'bad':''; }
 
-// Captura GPS no momento do clique e retorna {lat,lon,acc,ts}
 function getCurrentGPS(){
   return new Promise((resolve)=>{
     if(!navigator.geolocation){ resolve(null); return; }
@@ -157,10 +167,9 @@ function getCurrentGPS(){
   });
 }
 
-// Desenha legenda na foto com data/hora, lat/lon e KM + seção
 async function annotatePhoto(dataURL, meta){
   const img = new Image();
-  const loaded = await new Promise(r=>{ img.onload=r; img.src=dataURL; });
+  await new Promise(r=>{ img.onload=r; img.src=dataURL; });
   const maxW=1600, maxH=1600;
   let w=img.width, h=img.height;
   const ratio = Math.min(maxW/w, maxH/h, 1);
@@ -192,7 +201,6 @@ async function handlePhotoInput(e, row, secao, km){
   const reader = new FileReader();
   reader.onload = async (ev)=>{
     const ts = new Date().toISOString();
-    // GPS automático aqui
     const gps = await getCurrentGPS();
     const annotated = await annotatePhoto(ev.target.result, {gps, ts, km, secao});
     row.photos.push({data: annotated, ts, gps});
@@ -201,82 +209,154 @@ async function handlePhotoInput(e, row, secao, km){
   reader.readAsDataURL(file);
 }
 
+// Modal
+function openModal(src){ $('#photoModalImg').src = src; $('#photoModal').classList.remove('hidden'); }
+function closeModal(){ $('#photoModal').classList.add('hidden'); }
+document.getElementById('photoModal').onclick = closeModal;
+
+function bindThumbInteractions(imgEl, onDelete){
+  let timer=null, longPressed=false;
+  const start = ()=>{ longPressed=false; timer=setTimeout(()=>{ longPressed=true; if(confirm('Excluir esta foto?')) onDelete(); }, 600); };
+  const end = ()=>{ if(timer){ clearTimeout(timer); timer=null; if(!longPressed){ openModal(imgEl.src); } } };
+  imgEl.addEventListener('mousedown', start); imgEl.addEventListener('touchstart', start);
+  imgEl.addEventListener('mouseup', end); imgEl.addEventListener('mouseleave', end); imgEl.addEventListener('touchend', end); imgEl.addEventListener('touchcancel', end);
+}
+
 function renderTable(){
   const tbody = $('#tbody'); tbody.innerHTML='';
   const kms=range(state.kmStart, state.kmEnd);
   kms.forEach(km=>{
-    ensure(state.secao, km); const row=state.data[state.secao][km];
-    const tr=document.createElement('tr');
-    const c1=document.createElement('td'); c1.textContent=km; c1.style.fontWeight='600'; tr.appendChild(c1);
-    const c2=document.createElement('td');
-    const g=document.createElement('div'); g.className='status-btns';
-    [[1,'Bom'],[2,'Regular'],[3,'Crítico']].forEach(([code,txt])=>{
-      const chip=document.createElement('div'); chip.className=`chip ${cls(code)} ${row.status===code?'active':''}`;
-      chip.textContent=txt; chip.onclick=()=>{ row.status=(row.status===code?null:code); save(); renderAll(); };
-      g.appendChild(chip);
-    }); c2.appendChild(g); tr.appendChild(c2);
-    const c3=document.createElement('td');
-    const file=document.createElement('input'); file.type='file'; file.accept='image/*'; file.capture='environment';
-    file.onchange = (e)=> handlePhotoInput(e, row, state.secao, km);
-    const thumbs=document.createElement('div'); thumbs.className='thumbs';
-    (row.photos||[]).forEach((p,idx)=>{ const im=document.createElement('img'); im.src=p.data; im.className='photo-thumb'; im.title=new Date(p.ts).toLocaleString('pt-BR'); im.onclick=()=>{ if(confirm('Remover foto?')){ row.photos.splice(idx,1); save(); renderAll(); } }; thumbs.appendChild(im); });
-    c3.appendChild(file); c3.appendChild(thumbs); tr.appendChild(c3);
-    const c4=document.createElement('td'); const inp=document.createElement('input'); inp.type='text'; inp.placeholder='Observação'; inp.value=row.obs||''; inp.style.width='100%'; inp.onchange=()=>{ row.obs=inp.value; save(); };
-    c4.appendChild(inp); tr.appendChild(c4);
-    tbody.appendChild(tr);
+    const ativos = state.secoesAtivas.slice();
+    ativos.forEach((sec, idx)=>{
+      ensure(sec, km); const row=state.data[sec][km];
+      const tr=document.createElement('tr');
+      if(idx===0){
+        const kmtd=document.createElement('td'); kmtd.textContent=km; kmtd.rowSpan=ativos.length; kmtd.style.fontWeight='600'; tr.appendChild(kmtd);
+      }
+      const sTd=document.createElement('td'); sTd.textContent=(sec==="Canteiro Central"?"CC":sec); tr.appendChild(sTd);
+      const stTd=document.createElement('td'); const g=document.createElement('div'); g.className='status-btns';
+      [[1,'Bom'],[2,'Regular'],[3,'Crítico']].forEach(([code,txt])=>{
+        const chip=document.createElement('div'); chip.className=`chip ${cls(code)} ${row.status===code?'active':''}`;
+        chip.textContent=txt; chip.onclick=()=>{ row.status=(row.status===code?null:code); save(); renderAll(); };
+        g.appendChild(chip);
+      }); stTd.appendChild(g); tr.appendChild(stTd);
+      const ftTd=document.createElement('td'); const file=document.createElement('input'); file.type='file'; file.accept='image/*'; file.capture='environment';
+      file.onchange = (e)=> handlePhotoInput(e, row, sec, km);
+      const thumbs=document.createElement('div'); thumbs.className='thumbs';
+      (row.photos||[]).forEach((p,idx)=>{ const im=document.createElement('img'); im.src=p.data; im.className='photo-thumb'; im.title=new Date(p.ts).toLocaleString('pt-BR'); bindThumbInteractions(im, ()=>{ row.photos.splice(idx,1); save(); renderAll(); }); thumbs.appendChild(im); });
+      ftTd.appendChild(file); ftTd.appendChild(thumbs); tr.appendChild(ftTd);
+      const obsTd=document.createElement('td'); const inp=document.createElement('input'); inp.type='text'; inp.value=row.obs||''; inp.style.width='100%'; inp.onchange=()=>{ row.obs=inp.value; save(); };
+      obsTd.appendChild(inp); tr.appendChild(obsTd);
+      tbody.appendChild(tr);
+    });
   });
 }
 
-function renderHeat(){ const root=$('#heat'); root.innerHTML=''; const kms=range(state.kmStart, state.kmEnd); const grid=document.createElement('div'); grid.className='heat-grid'; grid.style.gridTemplateColumns=`120px repeat(${kms.length}, 28px)`; const h0=document.createElement('div'); h0.className='sticky-col mini'; grid.appendChild(h0); kms.forEach(km=>{ const c=document.createElement('div'); c.className='mini'; c.style.textAlign='center'; c.textContent=km; grid.appendChild(c); }); SECOES.forEach(sec=>{ const lab=document.createElement('div'); lab.className='sticky-col'; lab.textContent=sec; grid.appendChild(lab); kms.forEach(km=>{ ensure(sec, km); const st=state.data[sec][km].status; const cell=document.createElement('div'); cell.title=`${sec} • km ${km} • ${label(st)}`; cell.style.width='28px'; cell.style.height='24px'; cell.style.borderRadius='4px'; cell.style.background= st===1?'var(--ok)': st===2?'var(--mid)': st===3?'var(--bad)':'var(--empty)'; grid.appendChild(cell); }); }); root.appendChild(grid); }
+function renderHeat(){
+  const root=$('#heat'); root.innerHTML='';
+  const kms=range(state.kmStart, state.kmEnd);
+  const grid=document.createElement('div'); grid.className='heat-grid'; grid.style.gridTemplateColumns=`120px repeat(${kms.length}, 28px)`;
+  const h0=document.createElement('div'); h0.className='sticky-col mini'; grid.appendChild(h0);
+  kms.forEach(km=>{ const c=document.createElement('div'); c.className='mini'; c.style.textAlign='center'; c.textContent=km; grid.appendChild(c); });
+  ALL_SECOES.forEach(sec=>{
+    const lab=document.createElement('div'); lab.className='sticky-col'; lab.textContent=sec; grid.appendChild(lab);
+    kms.forEach(km=>{ ensure(sec, km); const st=state.data[sec][km].status; const cell=document.createElement('div'); cell.title=`${sec} • km ${km} • ${label(st)}`; cell.style.width='28px'; cell.style.height='24px'; cell.style.borderRadius='4px'; cell.style.background= st===1?'#8BC34A': st===2?'#FFEB3B': st===3?'#F44336':'#E0E0E0'; grid.appendChild(cell); });
+  });
+  root.appendChild(grid);
+}
 function renderAll(){ $('#kmStart').value=state.kmStart; $('#kmEnd').value=state.kmEnd; renderSegmentButtons(); renderTable(); renderHeat(); }
 
-// Exportações
 function rowsCSV(){
   const kms=range(state.kmStart, state.kmEnd);
   const rows=[["secao","km","status(1=Bom,2=Reg,3=Cri)","observacao","foto1","foto2","foto3"]];
-  SECOES.forEach(s=>{
+  ALL_SECOES.forEach(s=>{
     kms.forEach(km=>{
       const r=(state.data[s]||{})[km] || {status:null, obs:'', photos:[]};
       const photos=(r.photos||[]).map(p=>p.data);
-      rows.push([s, km, r.status||'', (r.obs||'').replaceAll('"','""'), photos[0]||'', photos[1]||'', photos[2]||'']);
+      rows.push([s, km, r.status||'', (r.obs||'').replaceAll('\"','\"\"'), photos[0]||'', photos[1]||'', photos[2]||'']);
     });
   });
   return rows;
 }
-function exportCSV(){ const rows=rowsCSV(); const csv = rows.map(r=> r.map(v=>`"${v}"`).join(',')).join('\n'); download(csv, 'retigrafico.csv'); }
+function exportCSV(){ const rows=rowsCSV(); const csv = rows.map(r=> r.map(v=>`"${v}"`).join(',')).join('\\n'); download(csv, 'retigrafico.csv'); }
 function download(text, filename){ const blob=new Blob([text],{type:'text/plain;charset=utf-8'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href), 1000); }
 
-function exportXLSX(){
-  const ws1 = XLSX.utils.aoa_to_sheet(rowsCSV());
-  const kms=range(state.kmStart, state.kmEnd);
-  const header = [''].concat(kms.map(k=>String(k)));
-  const data = [header];
-  SECOES.forEach(s=>{
-    const line=[s];
-    kms.forEach(km=>{ const st=(state.data[s]||{})[km]?.status || ''; line.push(st); });
-    data.push(line);
+async function exportXLSX(){
+  const GREEN='8BC34A', YELLOW='FFEB3B', RED='F44336', GRAY='E0E0E0';
+  const wb = new ExcelJS.Workbook();
+  const ws1 = wb.addWorksheet('Coleta');
+  const ws2 = wb.addWorksheet('Retigrafico');
+
+  // COLETA
+  const rows = rowsCSV();
+  ws1.addRow(rows[0]);
+  [12,8,12,30,16,16,16].forEach((w,i)=> ws1.getColumn(i+1).width = w);
+  for(let i=1;i<rows.length;i++){
+    const arr = rows[i];
+    const r = ws1.addRow(arr);
+    r.height = 72;
+    // fotos col 5..7
+    for(let f=0; f<3; f++){
+      const dataURL = arr[4+f];
+      if(!dataURL) continue;
+      const base64 = dataURL.split(',')[1] || dataURL;
+      const imgId = wb.addImage({base64: base64, extension:'jpeg'});
+      const col = 5 + f;
+      ws1.addImage(imgId, { tl:{col: col-1 + 0.1, row: r.number-1 + 0.2}, ext:{width:96, height:68} });
+    }
+  }
+
+  // RETIGRAFICO
+  const kms = range(state.kmStart, state.kmEnd);
+  ws2.addRow([''].concat(kms.map(k=>String(k))));
+  ws2.getRow(1).height = 22;
+  ws2.getColumn(1).width = 16;
+  kms.forEach((_,i)=> ws2.getColumn(i+2).width = 5);
+
+  ALL_SECOES.forEach((s)=>{
+    const line = [s];
+    kms.forEach(km=>{
+      const st=(state.data[s]||{})[km]?.status || '';
+      line.push(st);
+    });
+    ws2.addRow(line);
   });
-  const ws2 = XLSX.utils.aoa_to_sheet(data);
-  ws2['!cols'] = [{wch:14}].concat(kms.map(()=>({wch:5})));
-  ws2['!rows'] = Array(SECOES.length+1).fill({hpx:22});
-  const startRow = SECOES.length + 3;
-  XLSX.utils.sheet_add_aoa(ws2, [['Legenda','','1','','2','','3'],['','', 'Bom','','Regular','','Crítico']], {origin:{r:startRow, c:0}});
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws1, 'Coleta');
-  XLSX.utils.book_append_sheet(wb, ws2, 'Retigrafico');
-  XLSX.writeFile(wb, 'retigrafico.xlsx');
+
+  for (let r=2; r<=1+ALL_SECOES.length; r++){
+    ws2.getRow(r).height = 22;
+    for (let c=2; c<=1+kms.length; c++){
+      const cell = ws2.getRow(r).getCell(c);
+      const v = cell.value;
+      let fillColor = GRAY, fontColor = 'FFFFFFFF';
+      if(v===1){ fillColor=GREEN; fontColor=GREEN; }
+      else if(v===2){ fillColor=YELLOW; fontColor=YELLOW; }
+      else if(v===3){ fillColor=RED; fontColor=RED; }
+      else { cell.value = ''; }
+      cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:fillColor} };
+      cell.font = { color:{argb:fontColor} };
+      cell.alignment = { horizontal:'center', vertical:'middle' };
+    }
+  }
+
+  const base = 1 + ALL_SECOES.length + 2;
+  ws2.getCell(`A${base}`).value = 'Legenda';
+  ws2.getCell(`C${base}`).value = '1'; ws2.getCell(`C${base}`).fill = {type:'pattern', pattern:'solid', fgColor:{argb:GREEN}};
+  ws2.getCell(`E${base}`).value = '2'; ws2.getCell(`E${base}`).fill = {type:'pattern', pattern:'solid', fgColor:{argb:YELLOW}};
+  ws2.getCell(`G${base}`).value = '3'; ws2.getCell(`G${base}`).fill = {type:'pattern', pattern:'solid', fgColor:{argb:RED}};
+  ws2.getCell(`C${base+1}`).value = 'Bom'; ws2.getCell(`E${base+1}`).value = 'Regular'; ws2.getCell(`G${base+1}`).value = 'Crítico';
+
+  const buf = await wb.xlsx.writeBuffer();
+  saveAs(new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}), 'retigrafico.xlsx');
 }
 
 function actions(){
-  $('#btnGerar').onclick=()=>{ state.kmStart=parseInt($('#kmStart').value,10); state.kmEnd=parseInt($('#kmEnd').value,10); save(); renderAll(); };
-  $('#btnMarcarOk').onclick=()=>{ range(state.kmStart,state.kmEnd).forEach(km=>{ ensure(state.secao,km); state.data[state.secao][km].status=1; }); save(); renderAll(); };
-  $('#btnMarcarVazio').onclick=()=>{ range(state.kmStart,state.kmEnd).forEach(km=>{ ensure(state.secao,km); state.data[state.secao][km].status=null; state.data[state.secao][km].obs=''; state.data[state.secao][km].photos=[]; }); save(); renderAll(); };
-  $('#btnExportCSV').onclick=exportCSV; $('#btnExportXLSX').onclick=exportXLSX;
-  $('#btnReset').onclick=()=>{ if(confirm('Limpar todos os dados?')){ localStorage.removeItem('retigrafico_v32'); load(); renderAll(); } };
+  document.getElementById('btnGerar').onclick=()=>{ state.kmStart=parseInt(document.getElementById('kmStart').value,10); state.kmEnd=parseInt(document.getElementById('kmEnd').value,10); save(); renderAll(); };
+  document.getElementById('btnExportCSV').onclick=exportCSV;
+  document.getElementById('btnExportXLSX').onclick=exportXLSX;
+  document.getElementById('btnReset').onclick=()=>{ if(confirm('Limpar todos os dados?')){ localStorage.removeItem('retigrafico_v33_layout'); load(); renderAll(); } };
 }
 
 if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js').catch(() => {}); }); }
-
 load(); actions(); renderAll();
 </script>
 </body>
