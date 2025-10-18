@@ -11,8 +11,6 @@
   <meta name="apple-mobile-web-app-title" content="Retigráfico">
   <link rel="apple-touch-icon" href="icon-512.png">
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
   <style>
     :root{ --ok:#8BC34A; --mid:#FFEB3B; --bad:#F44336; --empty:#E0E0E0; --ink:#0f172a; --muted:#64748b; --brand:#0ea5e9; --bg:#f8fafc; --card:#ffffff; --radius:16px; }
     body{font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin:0; background:var(--bg); color:var(--ink)}
@@ -43,7 +41,6 @@
     .chip.bad{background:color-mix(in oklab, var(--bad) 22%, white); border-color:var(--bad)}
     .chip.active{box-shadow: inset 0 0 0 2px #00000020}
     .mini{font-size:12px; color:#475569}
-    .gps{font-size:12px; color:#0f766e}
     .photo-thumb{width:52px; height:52px; object-fit:cover; border-radius:8px; border:1px solid #e5e7eb}
     .thumbs{display:flex; gap:6px; flex-wrap:wrap}
     .heat{overflow:auto;}
@@ -60,10 +57,7 @@
       <h1>Retigráfico de Roçada</h1>
       <div class="row">
         <button class="ghost" id="btnExportCSV">Exportar CSV</button>
-        <button class="ghost" id="btnExportJSON">Exportar JSON</button>
-        <button class="ghost" id="btnImportJSON">Importar</button>
         <button class="ghost" id="btnExportXLSX">Exportar XLSX</button>
-        <button class="ghost" id="btnExportZIP">Exportar ZIP (XLSX+Fotos)</button>
         <button id="btnReset">Limpar</button>
       </div>
     </header>
@@ -88,7 +82,7 @@
           </div>
         </div>
       </div>
-      <p class="mini">Fotos recebem legenda automática (GPS, data/hora, KM e seção). Limite: 3 fotos por KM.</p>
+      <p class="mini">GPS é capturado automaticamente ao tirar a foto. Até 3 fotos por KM.</p>
     </section>
 
     <section class="card" style="margin-top:12px">
@@ -105,7 +99,6 @@
             <tr>
               <th style="min-width:64px">KM</th>
               <th>Status</th>
-              <th>GPS</th>
               <th>Foto</th>
               <th>Observação</th>
             </tr>
@@ -137,8 +130,8 @@ const SECOES = ["Norte", "Sul", "Canteiro Central", "Marginal"];
 let state = { kmStart:423, kmEnd:432, secao:SECOES[0], data:{} };
 const $ = s => document.querySelector(s);
 
-function save(){ localStorage.setItem('retigrafico_v3', JSON.stringify(state)); }
-function load(){ const raw = localStorage.getItem('retigrafico_v3'); if(raw){ try{ state=JSON.parse(raw);}catch(e){} } SECOES.forEach(s=> state.data[s] ||= {}); }
+function save(){ localStorage.setItem('retigrafico_v32', JSON.stringify(state)); }
+function load(){ const raw = localStorage.getItem('retigrafico_v32'); if(raw){ try{ state=JSON.parse(raw);}catch(e){} } SECOES.forEach(s=> state.data[s] ||= {}); }
 
 function renderSegmentButtons(){
   const box = $('#segmentButtons'); box.innerHTML='';
@@ -149,64 +142,60 @@ function renderSegmentButtons(){
   });
 }
 function range(a,b){ const r=[]; const step=a<=b?1:-1; for(let i=a;i!==b+step;i+=step) r.push(i); return r; }
-function ensure(secao, km){ state.data[secao] ||= {}; state.data[secao][km] ||= {status:null, obs:'', gps:null, photos:[]}; }
+function ensure(secao, km){ state.data[secao] ||= {}; state.data[secao][km] ||= {status:null, obs:'', photos:[]}; }
 function label(code){ return code===1?'Bom': code===2?'Regular': code===3?'Crítico':'—'; }
 function cls(code){ return code===1?'ok': code===2?'mid': code===3?'bad':''; }
 
-async function getGPSForRow(rowObj, elOut){
-  if(!navigator.geolocation){ alert('Geolocalização não suportada'); return; }
-  elOut.textContent = 'Capturando...';
-  navigator.geolocation.getCurrentPosition((pos)=>{
-    const {latitude, longitude, accuracy} = pos.coords;
-    rowObj.gps = {lat:latitude, lon:longitude, acc:accuracy, ts: new Date().toISOString()};
-    elOut.textContent = `${latitude.toFixed(5)}, ${longitude.toFixed(5)} (${Math.round(accuracy)}m)`;
-    elOut.className='gps';
-    save();
-  }, (err)=>{
-    elOut.textContent = 'Erro ao capturar';
-    alert('Erro ao obter GPS: ' + err.message);
-  }, {enableHighAccuracy:true, timeout:10000, maximumAge:0});
-}
-
-function annotatePhoto(dataURL, meta){
+// Captura GPS no momento do clique e retorna {lat,lon,acc,ts}
+function getCurrentGPS(){
   return new Promise((resolve)=>{
-    const img = new Image();
-    img.onload = ()=>{
-      const maxW=1600, maxH=1600;
-      let w=img.width, h=img.height;
-      const ratio = Math.min(maxW/w, maxH/h, 1);
-      w = Math.round(w*ratio); h = Math.round(h*ratio);
-      const canvas=document.createElement('canvas'); canvas.width=w; canvas.height=h;
-      const ctx=canvas.getContext('2d'); ctx.drawImage(img,0,0,w,h);
-      const lines=[
-        meta.gps ? `Lat ${meta.gps.lat.toFixed(5)}, Lon ${meta.gps.lon.toFixed(5)} (±${Math.round(meta.gps.acc)}m)` : 'GPS: —',
-        new Date(meta.ts).toLocaleString(),
-        `KM ${meta.km} — ${meta.secao}`
-      ];
-      ctx.font = Math.max(14, Math.round(w*0.025)) + 'px system-ui, -apple-system, sans-serif';
-      const pad = Math.round(w*0.02);
-      const lineH = Math.round(w*0.04);
-      const textW = Math.max(...lines.map(t=>ctx.measureText(t).width));
-      const boxW = Math.min(w - pad*2, textW + pad*2);
-      const boxH = lineH*lines.length + pad*2;
-      const x = pad, y = h - boxH - pad;
-      ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(x, y, boxW, boxH);
-      ctx.fillStyle = '#fff';
-      lines.forEach((t,i)=> ctx.fillText(t, x+pad, y+pad + lineH*(i+0.8)));
-      resolve(canvas.toDataURL('image/jpeg', 0.9));
-    };
-    img.src = dataURL;
+    if(!navigator.geolocation){ resolve(null); return; }
+    navigator.geolocation.getCurrentPosition((pos)=>{
+      const {latitude, longitude, accuracy} = pos.coords;
+      resolve({lat:latitude, lon:longitude, acc:accuracy, ts:new Date().toISOString()});
+    }, (_)=> resolve(null), {enableHighAccuracy:true, timeout:8000, maximumAge:0});
   });
 }
 
-function handlePhotoInput(e, row, secao, km){
+// Desenha legenda na foto com data/hora, lat/lon e KM + seção
+async function annotatePhoto(dataURL, meta){
+  const img = new Image();
+  const loaded = await new Promise(r=>{ img.onload=r; img.src=dataURL; });
+  const maxW=1600, maxH=1600;
+  let w=img.width, h=img.height;
+  const ratio = Math.min(maxW/w, maxH/h, 1);
+  w = Math.round(w*ratio); h = Math.round(h*ratio);
+  const canvas=document.createElement('canvas'); canvas.width=w; canvas.height=h;
+  const ctx=canvas.getContext('2d'); ctx.drawImage(img,0,0,w,h);
+  const dt = new Date(meta.ts);
+  const lines=[
+    dt.toLocaleString('pt-BR'),
+    meta.gps ? `${meta.gps.lat.toFixed(6)},${meta.gps.lon.toFixed(6)}` : 'GPS: —',
+    `Km ${meta.km} ${meta.secao.toLowerCase()}`
+  ];
+  ctx.font = Math.max(18, Math.round(w*0.03)) + 'px system-ui, -apple-system, sans-serif';
+  const pad = Math.round(w*0.02);
+  const lineH = Math.round(w*0.045);
+  const textW = Math.max(...lines.map(t=>ctx.measureText(t).width));
+  const boxW = Math.min(w - pad*2, textW + pad*2);
+  const boxH = lineH*lines.length + pad*2;
+  const x = pad, y = h - boxH - pad;
+  ctx.fillStyle = 'rgba(0,0,0,0.75)'; ctx.fillRect(x, y, boxW, boxH);
+  ctx.fillStyle = '#fff';
+  lines.forEach((t,i)=> ctx.fillText(t, x+pad, y+pad + lineH*(i+0.8)));
+  return canvas.toDataURL('image/jpeg', 0.9);
+}
+
+async function handlePhotoInput(e, row, secao, km){
   const file = e.target.files[0]; if(!file) return;
   if((row.photos||[]).length >= 3){ alert('Limite de 3 fotos por KM. Exclua uma para adicionar outra.'); return; }
   const reader = new FileReader();
   reader.onload = async (ev)=>{
     const ts = new Date().toISOString();
-    const annotated = await annotatePhoto(ev.target.result, {gps: row.gps, ts, km, secao});
-    row.photos.push({data: annotated, ts});
+    // GPS automático aqui
+    const gps = await getCurrentGPS();
+    const annotated = await annotatePhoto(ev.target.result, {gps, ts, km, secao});
+    row.photos.push({data: annotated, ts, gps});
     save(); renderAll();
   };
   reader.readAsDataURL(file);
@@ -227,18 +216,13 @@ function renderTable(){
       g.appendChild(chip);
     }); c2.appendChild(g); tr.appendChild(c2);
     const c3=document.createElement('td');
-    const gpsBtn=document.createElement('button'); gpsBtn.textContent='Capturar GPS'; gpsBtn.className='ghost';
-    const gpsOut=document.createElement('div'); gpsOut.className='mini'; gpsOut.textContent=row.gps? `${row.gps.lat.toFixed(5)}, ${row.gps.lon.toFixed(5)} (${Math.round(row.gps.acc)}m)` : '—';
-    gpsBtn.onclick=()=> getGPSForRow(row, gpsOut);
-    c3.appendChild(gpsBtn); c3.appendChild(gpsOut); tr.appendChild(c3);
-    const c4=document.createElement('td');
     const file=document.createElement('input'); file.type='file'; file.accept='image/*'; file.capture='environment';
     file.onchange = (e)=> handlePhotoInput(e, row, state.secao, km);
     const thumbs=document.createElement('div'); thumbs.className='thumbs';
-    (row.photos||[]).forEach((p,idx)=>{ const im=document.createElement('img'); im.src=p.data; im.className='photo-thumb'; im.title=new Date(p.ts).toLocaleString(); im.onclick=()=>{ if(confirm('Remover foto?')){ row.photos.splice(idx,1); save(); renderAll(); } }; thumbs.appendChild(im); });
-    c4.appendChild(file); c4.appendChild(thumbs); tr.appendChild(c4);
-    const c5=document.createElement('td'); const inp=document.createElement('input'); inp.type='text'; inp.placeholder='Observação'; inp.value=row.obs||''; inp.style.width='100%'; inp.onchange=()=>{ row.obs=inp.value; save(); };
-    c5.appendChild(inp); tr.appendChild(c5);
+    (row.photos||[]).forEach((p,idx)=>{ const im=document.createElement('img'); im.src=p.data; im.className='photo-thumb'; im.title=new Date(p.ts).toLocaleString('pt-BR'); im.onclick=()=>{ if(confirm('Remover foto?')){ row.photos.splice(idx,1); save(); renderAll(); } }; thumbs.appendChild(im); });
+    c3.appendChild(file); c3.appendChild(thumbs); tr.appendChild(c3);
+    const c4=document.createElement('td'); const inp=document.createElement('input'); inp.type='text'; inp.placeholder='Observação'; inp.value=row.obs||''; inp.style.width='100%'; inp.onchange=()=>{ row.obs=inp.value; save(); };
+    c4.appendChild(inp); tr.appendChild(c4);
     tbody.appendChild(tr);
   });
 }
@@ -246,94 +230,49 @@ function renderTable(){
 function renderHeat(){ const root=$('#heat'); root.innerHTML=''; const kms=range(state.kmStart, state.kmEnd); const grid=document.createElement('div'); grid.className='heat-grid'; grid.style.gridTemplateColumns=`120px repeat(${kms.length}, 28px)`; const h0=document.createElement('div'); h0.className='sticky-col mini'; grid.appendChild(h0); kms.forEach(km=>{ const c=document.createElement('div'); c.className='mini'; c.style.textAlign='center'; c.textContent=km; grid.appendChild(c); }); SECOES.forEach(sec=>{ const lab=document.createElement('div'); lab.className='sticky-col'; lab.textContent=sec; grid.appendChild(lab); kms.forEach(km=>{ ensure(sec, km); const st=state.data[sec][km].status; const cell=document.createElement('div'); cell.title=`${sec} • km ${km} • ${label(st)}`; cell.style.width='28px'; cell.style.height='24px'; cell.style.borderRadius='4px'; cell.style.background= st===1?'var(--ok)': st===2?'var(--mid)': st===3?'var(--bad)':'var(--empty)'; grid.appendChild(cell); }); }); root.appendChild(grid); }
 function renderAll(){ $('#kmStart').value=state.kmStart; $('#kmEnd').value=state.kmEnd; renderSegmentButtons(); renderTable(); renderHeat(); }
 
-function rowsCSV(){ const kms=range(state.kmStart, state.kmEnd); const rows=[["secao","km","status(1=Bom,2=Reg,3=Cri)","observacao","gps_lat","gps_lon","gps_acc_m","gps_ts","foto1","foto2","foto3"]]; SECOES.forEach(s=>{ kms.forEach(km=>{ const r=(state.data[s]||{})[km] || {status:null, obs:'', gps:null, photos:[]}; const photos=(r.photos||[]).map(p=>p.data); rows.push([s, km, r.status||'', (r.obs||'').replaceAll('"','""'), r.gps?.lat||'', r.gps?.lon||'', r.gps?.acc||'', r.gps?.ts||'', photos[0]||'', photos[1]||'', photos[2]||'']); }); }); return rows; }
+// Exportações
+function rowsCSV(){
+  const kms=range(state.kmStart, state.kmEnd);
+  const rows=[["secao","km","status(1=Bom,2=Reg,3=Cri)","observacao","foto1","foto2","foto3"]];
+  SECOES.forEach(s=>{
+    kms.forEach(km=>{
+      const r=(state.data[s]||{})[km] || {status:null, obs:'', photos:[]};
+      const photos=(r.photos||[]).map(p=>p.data);
+      rows.push([s, km, r.status||'', (r.obs||'').replaceAll('"','""'), photos[0]||'', photos[1]||'', photos[2]||'']);
+    });
+  });
+  return rows;
+}
 function exportCSV(){ const rows=rowsCSV(); const csv = rows.map(r=> r.map(v=>`"${v}"`).join(',')).join('\n'); download(csv, 'retigrafico.csv'); }
-function exportJSON(){ download(JSON.stringify(state,null,2),'retigrafico.json'); }
-function importJSON(){ const inp=document.createElement('input'); inp.type='file'; inp.accept='.json,application/json'; inp.onchange=e=>{ const f=e.target.files[0]; if(!f) return; const rd=new FileReader(); rd.onload=()=>{ try{ state=JSON.parse(rd.result); save(); renderAll(); }catch(e){ alert('JSON inválido'); } }; rd.readAsText(f); }; inp.click(); }
 function download(text, filename){ const blob=new Blob([text],{type:'text/plain;charset=utf-8'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href), 1000); }
 
-function buildXLSXWorkbook(){
-  const rows = rowsCSV();
-  const ws1 = XLSX.utils.aoa_to_sheet(rows);
-
+function exportXLSX(){
+  const ws1 = XLSX.utils.aoa_to_sheet(rowsCSV());
   const kms=range(state.kmStart, state.kmEnd);
   const header = [''].concat(kms.map(k=>String(k)));
   const data = [header];
   SECOES.forEach(s=>{
-    const line = [s];
-    kms.forEach(km=>{
-      const st=(state.data[s]||{})[km]?.status || null;
-      line.push(st||''); // numeric 1/2/3 or empty
-    });
+    const line=[s];
+    kms.forEach(km=>{ const st=(state.data[s]||{})[km]?.status || ''; line.push(st); });
     data.push(line);
   });
   const ws2 = XLSX.utils.aoa_to_sheet(data);
-
-  function setFill(ws, r, c, rgb){ const cell = ws[XLSX.utils.encode_cell({r,c})]; if(!cell) return; cell.s = { fill: { patternType: "solid", fgColor: { rgb } } }; }
-  const GREEN='8BC34A', YELLOW='FFEB3B', RED='F44336', GRAY='E0E0E0';
-  for(let r=1; r<=SECOES.length; r++){
-    for(let c=1; c<header.length; c++){
-      const v = data[r][c];
-      let color = GRAY;
-      if(v===1) color = GREEN;
-      else if(v===2) color = YELLOW;
-      else if(v===3) color = RED;
-      setFill(ws2, r, c, color);
-    }
-  }
   ws2['!cols'] = [{wch:14}].concat(kms.map(()=>({wch:5})));
   ws2['!rows'] = Array(SECOES.length+1).fill({hpx:22});
-
   const startRow = SECOES.length + 3;
-  XLSX.utils.sheet_add_aoa(ws2, [
-    ['Legenda', '', '1', '', '2', '', '3'],
-    ['', '', 'Bom', '', 'Regular', '', 'Crítico']
-  ], {origin: {r: startRow, c: 0}});
-  setFill(ws2, startRow, 2, GREEN);
-  setFill(ws2, startRow, 4, YELLOW);
-  setFill(ws2, startRow, 6, RED);
-
+  XLSX.utils.sheet_add_aoa(ws2, [['Legenda','','1','','2','','3'],['','', 'Bom','','Regular','','Crítico']], {origin:{r:startRow, c:0}});
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws1, 'Coleta');
   XLSX.utils.book_append_sheet(wb, ws2, 'Retigrafico');
-  return wb;
-}
-
-function exportXLSX(){
-  const wb = buildXLSXWorkbook();
   XLSX.writeFile(wb, 'retigrafico.xlsx');
-}
-
-async function exportZIP(){
-  const wb = buildXLSXWorkbook();
-  const wbout = XLSX.write(wb, {bookType:'xlsx', type:'array'});
-  const zip = new JSZip();
-  zip.file('retigrafico.xlsx', wbout);
-
-  const kms=range(state.kmStart, state.kmEnd);
-  const fotosFolder = zip.folder('fotos');
-  SECOES.forEach(s=>{
-    kms.forEach(km=>{
-      const r=(state.data[s]||{})[km];
-      if(!r || !r.photos) return;
-      r.photos.forEach((p,idx)=>{
-        const base64 = p.data.split(',')[1];
-        const fname = `foto_${s.replace(/\s+/g,'_')}_km${km}_${idx+1}.jpg`;
-        fotosFolder.file(fname, base64, {base64:true});
-      });
-    });
-  });
-
-  const blob = await zip.generateAsync({type:'blob'});
-  saveAs(blob, 'retigrafico_relatorio.zip');
 }
 
 function actions(){
   $('#btnGerar').onclick=()=>{ state.kmStart=parseInt($('#kmStart').value,10); state.kmEnd=parseInt($('#kmEnd').value,10); save(); renderAll(); };
   $('#btnMarcarOk').onclick=()=>{ range(state.kmStart,state.kmEnd).forEach(km=>{ ensure(state.secao,km); state.data[state.secao][km].status=1; }); save(); renderAll(); };
-  $('#btnMarcarVazio').onclick=()=>{ range(state.kmStart,state.kmEnd).forEach(km=>{ ensure(state.secao,km); state.data[state.secao][km].status=null; state.data[state.secao][km].obs=''; state.data[state.secao][km].gps=null; state.data[state.secao][km].photos=[]; }); save(); renderAll(); };
-  $('#btnExportCSV').onclick=exportCSV; $('#btnExportJSON').onclick=exportJSON; $('#btnImportJSON').onclick=importJSON; $('#btnExportXLSX').onclick=exportXLSX; $('#btnExportZIP').onclick=exportZIP;
-  $('#btnReset').onclick=()=>{ if(confirm('Limpar todos os dados?')){ localStorage.removeItem('retigrafico_v3'); load(); renderAll(); } };
+  $('#btnMarcarVazio').onclick=()=>{ range(state.kmStart,state.kmEnd).forEach(km=>{ ensure(state.secao,km); state.data[state.secao][km].status=null; state.data[state.secao][km].obs=''; state.data[state.secao][km].photos=[]; }); save(); renderAll(); };
+  $('#btnExportCSV').onclick=exportCSV; $('#btnExportXLSX').onclick=exportXLSX;
+  $('#btnReset').onclick=()=>{ if(confirm('Limpar todos os dados?')){ localStorage.removeItem('retigrafico_v32'); load(); renderAll(); } };
 }
 
 if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js').catch(() => {}); }); }
