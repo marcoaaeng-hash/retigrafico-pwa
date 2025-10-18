@@ -78,8 +78,25 @@ let total=0,b=0,m=0,c=0;sentidos.forEach(sec=>{kms.forEach(km=>{const v=(state.d
 ws2.getCell('H6').value='Percentuais';ws2.getCell('H6').font={bold:true};ws2.getCell('H7').value=`Bom: ${pb}%`;ws2.getCell('H8').value=`Regular: ${pm}%`;ws2.getCell('H9').value=`Crítico: ${pc}%`;
 const pie=makePiePNG(pb,pm,pc);const pieId=wb.addImage({base64:pie.split(',')[1],extension:'png'});ws2.addImage(pieId,{tl:{col:8.5,row:1.2},ext:{width:260,height:180}});
 const buf=await wb.xlsx.writeBuffer();saveAs(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),'retigrafico.xlsx');}
-function actions(){document.getElementById('btnGerar').onclick=()=>{state.kmStart=parseInt(document.getElementById('kmStart').value,10);state.kmEnd=parseInt(document.getElementById('kmEnd').value,10);state.rodoviaUF=document.getElementById('rodoviaUF').value;save();renderAll()};
+function actions(){document.getElementById('btnGerar').onclick=()=>{let _ks = parseInt(document.getElementById('kmStart').value,10); let _ke = parseInt(document.getElementById('kmEnd').value,10); if(isNaN(_ks)||isNaN(_ke)){alert('Preencha KM Inicial e KM Final.'); return;} state.kmStart=_ks; state.kmEnd=_ke;state.rodoviaUF=document.getElementById('rodoviaUF').value;save();renderAll()};
 document.getElementById('rodoviaUF').onchange=()=>{state.rodoviaUF=document.getElementById('rodoviaUF').value;save()};document.getElementById('btnExportCSV').onclick=exportCSV;document.getElementById('btnExportXLSX').onclick=exportXLSX;
 document.getElementById('btnReset').onclick=clearAll;document.getElementById('btnClearAll').onclick=clearAll;document.getElementById('btnMarkAllGood').onclick=()=>{const kms=range(state.kmStart,state.kmEnd);ALL_SECOES.forEach(s=>kms.forEach(km=>{ensure(s,km);state.data[s][km].status=1}));save();renderAll()}};
 if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('./sw.js').catch(()=>{})})}load();actions();renderAll();
+
+function renderAll(){
+  // sincroniza inputs -> estado
+  const uf = document.getElementById('rodoviaUF');
+  const ks = document.getElementById('kmStart');
+  const ke = document.getElementById('kmEnd');
+  if(uf) uf.value = state.rodoviaUF || '';
+  if(ks) ks.value = state.kmStart;
+  if(ke) ke.value = state.kmEnd;
+  // desenha
+  renderTable();
+  renderHeat();
+  renderStats();
+  // rolagem para a tabela após gerar (UX mobile)
+  // document.getElementById('tbody')?.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
 </script></body></html>
