@@ -188,69 +188,164 @@ function exportCSV(){const rows=rowsCSV();const csv=rows.map(r=>r.map(v=>`"${v}"
 function makePiePNG(pb,pm,pc){const c=document.createElement('canvas');c.width=420;c.height=300;const ctx=c.getContext('2d');const cx=160,cy=135,r=100;const data=[pb,pm,pc];const colors=['#8BC34A','#FFEB3B','#F44336'];const labels=['Bom','Regular','Crítico'];ctx.shadowColor='rgba(0,0,0,.18)';ctx.shadowBlur=12;let start=-Math.PI/2;data.forEach((v,i)=>{const angle=(v/100)*2*Math.PI;ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,r,start,start+angle);ctx.closePath();ctx.fillStyle=colors[i];ctx.fill();start+=angle});ctx.shadowColor='transparent';ctx.font='bold 14px system-ui, -apple-system, sans-serif';labels.forEach((t,i)=>{const y=30+i*24;ctx.fillStyle=colors[i];ctx.fillRect(300,y-12,18,18);ctx.fillStyle='#111827';ctx.fillText(`${t}: ${String(data[i])}%`,324,y+2)});ctx.fillStyle='#111827';ctx.font='600 16px system-ui, -apple-system, sans-serif';ctx.fillText('Percentual por classificação',20,24);return c.toDataURL('image/png')}
 
 // XLSX export
+<script>
 async function exportXLSX(){
   const GREEN='8BC34A', YELLOW='FFEB3B', RED='F44336', GRAY='E0E0E0';
   const wb=new ExcelJS.Workbook();
 
+  // ======== 1) ABA COLETA =========
   const ws1=wb.addWorksheet('Coleta',{properties:{defaultRowHeight:20}});
   const header=["rodoviaUF","secao","km","status(1=Bom,2=Reg,3=Cri)","observacao","foto1","foto2","foto3"];
   const headRow=ws1.addRow(header);
-  headRow.eachCell(c=>{c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'355E3B'}};c.font={color:{argb:'FFFFFFFF'},bold:true};c.alignment={vertical:'middle',horizontal:'center',wrapText:true};c.border={top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}}});
+  headRow.eachCell(c=>{
+    c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'355E3B'}};
+    c.font={color:{argb:'FFFFFFFF'},bold:true};
+    c.alignment={vertical:'middle',horizontal:'center',wrapText:true};
+    c.border={top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
+  });
   [18,16,10,16,36,18,18,18].forEach((w,i)=>ws1.getColumn(i+1).width=w);
-  const rows=rowsCSV();
+
+  // helper: centralizar imagem dentro da célula (col/row) em px -> fração
+  function placeImageCentered(ws, rowIdx, colIdx, imgW, imgH){
+    const col = ws.getColumn(colIdx);
+    const row = ws.getRow(rowIdx);
+
+    const colWidthPx = (col.width || 10) * 7;        // ~7 px por unidade de largura
+    const rowHeightPt = row.height || ws.properties.defaultRowHeight || 18;
+    const rowHeightPx = rowHeightPt * 1.3333;        // 1pt ≈ 1.3333 px
+
+    const offXPx = Math.max(0,(colWidthPx - imgW)/2);
+    const offYPx = Math.max(0,(rowHeightPx - imgH)/2);
+
+    // converter offset em fração de célula (0..1)
+    const fx = colWidthPx ? (offXPx/colWidthPx) : 0.1;
+    const fy = rowHeightPx ? (offYPx/rowHeightPx) : 0.1;
+
+    return { tl:{ col: (colIdx-1)+fx, row: (rowIdx-1)+fy }, ext:{ width: imgW, height: imgH } };
+  }
+
+  // linhas de dados (CSV helper que já existe no código)
+  const rows=rowsCSV(); // [["rodoviaUF","secao",...], ...]
   for(let i=1;i<rows.length;i++){
     const arr=rows[i];
     const row=ws1.addRow(arr);
-    row.height=76;
-    row.eachCell(c=>{c.border={top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};c.alignment={vertical:'middle',horizontal:(c.col==3||c.col==4)?'center':'left'}});
+    row.height=90; // um pouco maior para centralizar melhor
+
+    row.eachCell((c, colNumber)=>{
+      c.border={top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
+      c.alignment={vertical:'middle',horizontal:(colNumber===3||colNumber===4)?'center':'left',wrapText:true};
+    });
+
+    // fotos centralizadas nas colunas 6,7,8
     for(let f=0;f<3;f++){
-      const dataURL=arr[5+f]; if(!dataURL) continue;
+      const dataURL=arr[5+f];
+      if(!dataURL) continue;
       const base64=dataURL.includes(',')?dataURL.split(',')[1]:dataURL;
       const imgId=wb.addImage({base64,extension:'jpeg'});
-      const col=6+f;
-      ws1.addImage(imgId,{tl:{col:col-1+0.12,row:row.number-1+0.20},ext:{width:110,height:72}});
+
+      const targetCol=6+f;
+      const anchor = placeImageCentered(ws1, row.number, targetCol, 120, 80); // tamanho da miniatura
+      ws1.addImage(imgId, anchor);
     }
   }
 
+  // ======== 2) ABA RETIGRAFICO =========
   const ws2=wb.addWorksheet('Retigrafico',{properties:{defaultRowHeight:18}});
-  ws2.getCell('A1').value='Rodovia/UF'; ws2.getCell('B1').value=state.rodoviaUF||''; ws2.getRow(1).font={bold:true};
+
+  // Cabeçalho e legenda
+  ws2.getCell('A1').value='Rodovia/UF';
+  ws2.getCell('B1').value=state.rodoviaUF||'';
+  ws2.getRow(1).font={bold:true};
   ws2.getColumn(1).width=14; ws2.getColumn(2).width=20;
+
   ws2.getCell('A3').value='Legenda';
-  const legend=[{col:'B',label:'1',name:'Bom',color:'8BC34A'},{col:'D',label:'2',name:'Regular',color:'FFEB3B'},{col:'F',label:'3',name:'Crítico',color:'F44336'}];
-  legend.forEach(L=>{ws2.getCell(`${L.col}2`).value=L.label;ws2.getCell(`${L.col}2`).fill={type:'pattern',pattern:'solid',fgColor:{argb:L.color}};ws2.getCell(`${L.col}3`).value=L.name;ws2.getColumn(ws2.getCell(`${L.col}2`).col).width=12;ws2.getCell(`${L.col}2`).alignment={horizontal:'center',vertical:'middle'}});
+  const legend=[
+    {col:'B', label:'1', name:'Bom',     color:GREEN},
+    {col:'D', label:'2', name:'Regular', color:YELLOW},
+    {col:'F', label:'3', name:'Crítico', color:RED}
+  ];
+  legend.forEach(L=>{
+    ws2.getCell(`${L.col}2`).value=L.label;
+    ws2.getCell(`${L.col}2`).fill={type:'pattern',pattern:'solid',fgColor:{argb:L.color}};
+    ws2.getCell(`${L.col}3`).value=L.name;
+    ws2.getColumn(ws2.getCell(`${L.col}2`).col).width=12;
+    ws2.getCell(`${L.col}2`).alignment={horizontal:'center',vertical:'middle'};
+  });
 
-  const kms=(state.kmStart<=state.kmEnd)?Array.from({length:state.kmEnd-state.kmStart+1},(_,i)=>state.kmStart+i):Array.from({length:state.kmStart-state.kmEnd+1},(_,i)=>state.kmStart-i);
-  const startRow=6, startCol=2;
-  const sentidos=getSecoes();
-  ws2.getColumn(1).width=18;
+  // Grade do retigráfico (com números 1/2/3 nas células)
+  const kms=(state.kmStart<=state.kmEnd)
+    ? Array.from({length:state.kmEnd-state.kmStart+1},(_,i)=>state.kmStart+i)
+    : Array.from({length:state.kmStart-state.kmEnd+1},(_,i)=>state.kmStart-i);
 
-  kms.forEach((km,idx)=>{const cell=ws2.getCell(startRow-1,startCol+idx);cell.value=String(km);cell.alignment={horizontal:'center',vertical:'bottom',textRotation:90};ws2.getColumn(startCol+idx).width=5});
+  const startRow=6, startCol=2; // B6
+  const sentidos=(state.selectedSecoes && state.selectedSecoes.length) ? state.selectedSecoes : ["Sul","Canteiro Central","Norte"];
+  ws2.getColumn(1).width=16;
 
+  // cabeçalho dos KMs
+  kms.forEach((km,idx)=>{
+    const cell=ws2.getCell(startRow-1,startCol+idx);
+    cell.value=String(km);
+    cell.alignment={horizontal:'center',vertical:'bottom',textRotation:90};
+    ws2.getColumn(startCol+idx).width=5;
+  });
+
+  // linhas por sentido
   sentidos.forEach((s,rIdx)=>{
     ws2.getCell(startRow+rIdx,1).value=s;
     kms.forEach((km,cIdx)=>{
-      const v=(state.data[s]||{})[km]?.status||'';
+      const v=(state.data[s]||{})[km]?.status ?? '';
       const cell=ws2.getCell(startRow+rIdx,startCol+cIdx);
-      let fill='E0E0E0',fontColor='FFFFFFFF';
-      if(v===1){fill='8BC34A';fontColor='8BC34A'}else if(v===2){fill='FFEB3B';fontColor='FFEB3B'}else if(v===3){fill='F44336';fontColor='F44336'}else{cell.value=''}
-      cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:fill}}; cell.font={color:{argb:fontColor}}; cell.alignment={horizontal:'center',vertical:'middle'};
-      cell.border={top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}}; ws2.getRow(startRow+rIdx).height=22;
+
+      // Valor numérico na célula (para fórmulas funcionarem)
+      cell.value = (v===1||v===2||v===3) ? v : '';
+
+      // Cor de fundo
+      let fill=GRAY;
+      if(v===1) fill=GREEN; else if(v===2) fill=YELLOW; else if(v===3) fill=RED;
+
+      cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:fill}};
+      cell.alignment={horizontal:'center',vertical:'middle'};
+      cell.border={top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
+      ws2.getRow(startRow+rIdx).height=22;
     });
   });
 
-  let total=0,b=0,m=0,c=0;
-  sentidos.forEach(sec=>{kms.forEach(km=>{const v=(state.data[sec]||{})[km]?.status; if(v===1)b++; else if(v===2)m++; else if(v===3)c++; if(v) total++;})});
-  const pb= total?Math.round(100*b/total):0, pm= total?Math.round(100*m/total):0, pc= total?Math.round(100*c/total):0;
+  // ======== Percentuais por fórmulas (COUNTIF / COUNT) ========
+  // Intervalo de dados do retigráfico
+  const lastRow = startRow + sentidos.length - 1;
+  const lastCol = startCol + kms.length - 1;
+  const rangeRef = `${ws2.getCell(startRow,startCol).address}:${ws2.getCell(lastRow,lastCol).address}`;
 
-  ws2.getCell('H6').value='Percentuais'; ws2.getCell('H6').font={bold:true};
-  ws2.getCell('H7').value=`Bom: ${pb}%`; ws2.getCell('H8').value=`Regular: ${pm}%`; ws2.getCell('H9').value=`Crítico: ${pc}%`;
+  ws2.getCell('H2').value='Percentuais'; ws2.getCell('H2').font={bold:true};
+  ws2.getCell('H3').value='Bom (1)';      ws2.getCell('I3').value={ formula:`COUNTIF(${rangeRef},1)` };
+  ws2.getCell('H4').value='Regular (2)';  ws2.getCell('I4').value={ formula:`COUNTIF(${rangeRef},2)` };
+  ws2.getCell('H5').value='Crítico (3)';  ws2.getCell('I5').value={ formula:`COUNTIF(${rangeRef},3)` };
+  ws2.getCell('H6').value='Total';        ws2.getCell('I6').value={ formula:`COUNT(${rangeRef})` };
 
-  const pie=makePiePNG(pb,pm,pc); const pieId=wb.addImage({base64:pie.split(',')[1],extension:'png'});
-  ws2.addImage(pieId,{tl:{col:8.5,row:1.2},ext:{width:260,height:180}});
+  ws2.getCell('J3').value='% Bom';        ws2.getCell('K3').value={ formula:`IF($I$6=0,0,ROUND($I$3/$I$6*100,0))` };
+  ws2.getCell('J4').value='% Regular';    ws2.getCell('K4').value={ formula:`IF($I$6=0,0,ROUND($I$4/$I$6*100,0))` };
+  ws2.getCell('J5').value='% Crítico';    ws2.getCell('K5').value={ formula:`IF($I$6=0,0,ROUND($I$5/$I$6*100,0))` };
 
+  // ======== Gráfico (imagem) ancorado no cabeçalho, à direita ========
+  // Gera PNG da pizza com os percentuais (usando as fórmulas é inviável criar chart nativo via ExcelJS)
+  // Para o PNG, calculamos a partir dos valores atuais (para o visual inicial).
+  // OBS: As células de % (K3..K5) ficam com fórmula real no Excel.
+  const total = (computeStats().total)||0;
+  const s = computeStats();
+  const pb = total? s.pb : 0, pm = total? s.pm : 0, pc = total? s.pc : 0;
+
+  const pie = makePiePNG(pb,pm,pc);
+  const pieId = wb.addImage({base64: pie.split(',')[1], extension:'png'});
+
+  // Posicionar em J1 (fora da grade), sem atrapalhar o retigráfico
+  ws2.addImage(pieId,{ tl:{ col: 9, row: 0.5 }, ext:{ width: 360, height: 240 } });
+
+  // ======== Gerar arquivo ========
   const buf=await wb.xlsx.writeBuffer();
   saveAs(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),'retigrafico.xlsx');
 }
+</script>
+
 
 // ações
 function actions(){
