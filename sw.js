@@ -1,1 +1,1 @@
-const CACHE_NAME='retigrafico-cache-v382';self.addEventListener('install',()=>{});
+const CACHE_NAME='retigrafico-cache-v383';self.addEventListener('install',()=>{});
