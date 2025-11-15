@@ -1,22 +1,67 @@
-const CACHE_NAME='retigrafico-cache-v383';
-const ASSETS=[
-  './','./index.html','./manifest.webmanifest',
-  './icon-512.png','./icon-192.png',
+const CACHE_NAME = 'retigrafico-cache-v1';
+
+const FILES_TO_CACHE = [
+  './',
+  './index.html',
+  './manifest.webmanifest',
+  './icon-192.png',
+  './icon-512.png',
   'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
   'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js',
   'https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js'
 ];
-self.addEventListener('install',e=>{
-  e.waitUntil(caches.open(CACHE_NAME).then(c=>c.addAll(ASSETS)));
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(FILES_TO_CACHE).catch(() => {});
+    })
+  );
+  self.skipWaiting();
 });
-self.addEventListener('activate',e=>{
-  e.waitUntil(caches.keys().then(keys=>Promise.all(keys.map(k=>k!==CACHE_NAME?caches.delete(k):null))));
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(
+        keys.map((key) => {
+          if (key !== CACHE_NAME) {
+            return caches.delete(key);
+          }
+        })
+      )
+    )
+  );
+  self.clients.claim();
 });
-self.addEventListener('fetch',e=>{
-  e.respondWith(
-    caches.match(e.request).then(r=>r||fetch(e.request).then(res=>{
-      try{const cp=res.clone();caches.open(CACHE_NAME).then(c=>c.put(e.request,cp));}catch(_){}
-      return res;
-    }).catch(()=>caches.match('./index.html')))
+
+self.addEventListener('fetch', (event) => {
+  const request = event.request;
+
+  // Só tenta cache para GET
+  if (request.method !== 'GET') {
+    return;
+  }
+
+  event.respondWith(
+    caches.match(request).then((cached) => {
+      if (cached) {
+        return cached;
+      }
+      return fetch(request)
+        .then((response) => {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(request, copy);
+          });
+          return response;
+        })
+        .catch(() => {
+          // Se falhar e for navegação, tenta voltar pro index
+          if (request.mode === 'navigate') {
+            return caches.match('./index.html');
+          }
+        });
+    })
   );
 });
