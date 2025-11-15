@@ -73,12 +73,13 @@
     button.ghost{background:#fff;color:var(--brand);border:1px solid var(--brand)}
     button.bad{background:#ef4444}
     button.warn{background:#f59e0b;color:#1f2937;border:1px solid #f59e0b}
+
     @media (max-width:768px){
       .g-3{grid-template-columns:1fr}
-      .row{flex-direction:column;align-items:flex-start}
-      .btn-row{width:100%;display:flex;flex-direction:column;gap:8px}
-      button{width:100%}
+      .btn-row{flex-direction:column;align-items:flex-start}
+      .btn-row button{width:100%}
     }
+
     .card-title{
       font-size:15px;
       font-weight:600;
@@ -398,11 +399,11 @@
         </div>
         <div>
           <label>KM Inicial</label>
-          <input id="kmStart" type="number" placeholder="Ex.: 273">
+          <input id="kmStart" type="number" placeholder="Ex.: 256">
         </div>
         <div>
           <label>KM Final</label>
-          <input id="kmEnd" type="number" placeholder="Ex.: 290">
+          <input id="kmEnd" type="number" placeholder="Ex.: 260">
         </div>
       </div>
 
@@ -417,9 +418,6 @@
       <div class="row btn-row" style="margin-top:12px">
         <button id="btnGerar">Gerar / Atualizar Tabela</button>
         <button id="btnReset" class="ghost warn">Limpar tudo</button>
-        <div style="flex:1"></div>
-        <button id="btnExportCSV" class="ghost">Exportar CSV</button>
-        <button id="btnExportXLSX">Exportar XLSX</button>
       </div>
     </div>
 
@@ -474,13 +472,19 @@
       </div>
     </div>
 
-    <!-- ESTATÍSTICAS -->
+    <!-- ESTATÍSTICAS + BOTÕES NO RODAPÉ -->
     <div class="card" style="margin-top:12px">
       <div class="card-title">
         Estatísticas de Condição
         <span class="badge">Resumo</span>
       </div>
       <div id="statsWrap"></div>
+
+      <div class="row btn-row" style="margin-top:12px;justify-content:flex-end">
+        <button id="btnTudoBom" class="ghost">Marcar tudo como Bom (1)</button>
+        <button id="btnExportCSV" class="ghost">Exportar CSV</button>
+        <button id="btnExportXLSX">Exportar XLSX</button>
+      </div>
     </div>
   </div>
 
@@ -512,6 +516,19 @@
       return state.selectedSecoes && state.selectedSecoes.length
         ? state.selectedSecoes
         : ["Sul","Canteiro Central","Norte"];
+    }
+
+    // km apenas com dados para o HEATMAP (remove espaços inúteis)
+    function getKmsComDados(){
+      const all=range(state.kmStart,state.kmEnd);
+      const sentidos=getSecoes();
+      const usados=all.filter(km =>
+        sentidos.some(sec=>{
+          const p=state.data[sec] && state.data[sec][km];
+          return p && p.status!=null;
+        })
+      );
+      return usados.length ? usados : all;
     }
 
     function renderSentidosBox(){
@@ -643,11 +660,18 @@
               if(!file) return;
               const reader=new FileReader();
               reader.onload=async ev=>{
-                const dataUrl=ev.target.result;
-                const annotated=await annotatePhoto(dataUrl,secao,km);
-                ponto.photos=ponto.photos||[];
-                ponto.photos.push(annotated);
-                save(); renderAll();
+                try{
+                  const dataUrl=ev.target.result;
+                  const annotated=await annotatePhoto(dataUrl,secao,km);
+                  ponto.photos=ponto.photos||[];
+                  ponto.photos.push(annotated || dataUrl);
+                  save(); renderAll();
+                }catch(err){
+                  // se der erro, salva a foto original mesmo assim
+                  ponto.photos=ponto.photos||[];
+                  ponto.photos.push(ev.target.result);
+                  save(); renderAll();
+                }
               };
               reader.readAsDataURL(file);
             };
@@ -677,36 +701,44 @@
     }
 
     async function annotatePhoto(dataUrl,secao,km){
-      const img=new Image();
-      img.src=dataUrl;
-      await new Promise(res=>{img.onload=res;});
-      const canvas=document.createElement('canvas');
-      const maxW=1024;
-      const scale=Math.min(1,maxW/img.width);
-      canvas.width=img.width*scale;
-      canvas.height=img.height*scale;
-      const ctx=canvas.getContext('2d');
-      ctx.drawImage(img,0,0,canvas.width,canvas.height);
+      try{
+        const img=new Image();
+        img.src=dataUrl;
+        await new Promise((res,rej)=>{
+          img.onload=res;
+          img.onerror=rej;
+        });
+        const canvas=document.createElement('canvas');
+        const maxW=1024;
+        const scale=Math.min(1,maxW/img.width);
+        canvas.width=img.width*scale;
+        canvas.height=img.height*scale;
+        const ctx=canvas.getContext('2d');
+        ctx.drawImage(img,0,0,canvas.width,canvas.height);
 
-      const now=new Date();
-      const ts=now.toLocaleString('pt-BR',{hour12:false});
-      const g=await gps();
-      const line1=ts;
-      const line2=g?`${g.lat.toFixed(5)} ${g.lon.toFixed(5)}`:'GPS indisponível';
-      const line3=`Km ${km} - ${secao}`;
+        const now=new Date();
+        const ts=now.toLocaleString('pt-BR',{hour12:false});
+        const g=await gps();
+        const line1=ts;
+        const line2=g?`${g.lat.toFixed(5)} ${g.lon.toFixed(5)}`:'GPS indisponível';
+        const line3=`Km ${km} - ${secao}`;
 
-      const pad=8;
-      const boxH=58;
-      ctx.fillStyle='rgba(15,23,42,0.72)';
-      ctx.fillRect(0,canvas.height-boxH,canvas.width,boxH);
-      ctx.fillStyle='#e5f0ff';
-      ctx.font='12px system-ui';
-      ctx.textBaseline='top';
-      ctx.fillText(line1,pad,canvas.height-boxH+6);
-      ctx.fillText(line2,pad,canvas.height-boxH+22);
-      ctx.fillText(line3,pad,canvas.height-boxH+38);
+        const pad=8;
+        const boxH=58;
+        ctx.fillStyle='rgba(15,23,42,0.72)';
+        ctx.fillRect(0,canvas.height-boxH,canvas.width,boxH);
+        ctx.fillStyle='#e5f0ff';
+        ctx.font='12px system-ui';
+        ctx.textBaseline='top';
+        ctx.fillText(line1,pad,canvas.height-boxH+6);
+        ctx.fillText(line2,pad,canvas.height-boxH+22);
+        ctx.fillText(line3,pad,canvas.height-boxH+38);
 
-      return canvas.toDataURL('image/jpeg',0.8);
+        return canvas.toDataURL('image/jpeg',0.8);
+      }catch(e){
+        console.error('Erro ao anotar foto',e);
+        return dataUrl;
+      }
     }
 
     function openModal(src,secao,km){
@@ -743,7 +775,8 @@
       const wrap=document.getElementById('heatWrap');
       wrap.innerHTML='';
       if(!state.kmStart && !state.kmEnd) return;
-      const kms=range(state.kmStart,state.kmEnd);
+
+      const kms=getKmsComDados();       // <<< só km com dado
       const sentidos=getSecoes();
 
       const frame=document.createElement('div');
@@ -894,7 +927,7 @@
       setTimeout(()=>URL.revokeObjectURL(a.href),1000);
     }
 
-    // Gera PNG do gráfico de pizza
+    // Gráfico de pizza em PNG
     function makePiePNG(pb,pm,pc){
       const c=document.createElement('canvas');
       c.width=420;c.height=300;
@@ -1019,7 +1052,9 @@
       ws2.getRow(headerRow).font={bold:true};
 
       const colOffset = 2;
-      kms.forEach((km,idx)=>{
+      const kmsHeat = getKmsComDados(); // mesma lógica do heatmap
+
+      kmsHeat.forEach((km,idx)=>{
         const col = colOffset + idx;
         const cell = ws2.getCell(headerRow,col);
         cell.value = km;
@@ -1039,7 +1074,7 @@
         cSentido.alignment={vertical:'middle',horizontal:'left'};
         cSentido.border={top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
 
-        kms.forEach((km,idx)=>{
+        kmsHeat.forEach((km,idx)=>{
           const col = colOffset + idx;
           const cell = ws2.getCell(rowNum,col);
           const ponto = (state.data[secao] && state.data[secao][km]) || {};
@@ -1096,6 +1131,20 @@
       }),'retigrafico.xlsx');
     }
 
+    function marcarTudoBom(){
+      if(!state.kmStart && !state.kmEnd){alert('Defina KM inicial e final primeiro.');return;}
+      const kms=range(state.kmStart,state.kmEnd);
+      const sentidos=getSecoes();
+      sentidos.forEach(sec=>{
+        kms.forEach(km=>{
+          ensure(sec,km);
+          state.data[sec][km].status=1;
+        });
+      });
+      save();
+      renderAll();
+    }
+
     function actions(){
       document.getElementById('btnGerar').onclick=()=>{
         let _ks=parseInt(document.getElementById('kmStart').value,10);
@@ -1128,6 +1177,7 @@
       document.getElementById('btnExportCSV').onclick=exportCSV;
       document.getElementById('btnExportXLSX').onclick=exportXLSX;
       document.getElementById('btnReset').onclick=clearAll;
+      document.getElementById('btnTudoBom').onclick=marcarTudoBom;
 
       document.getElementById('kmStart').onchange=()=>{
         state.kmStart=parseInt(document.getElementById('kmStart').value,10)||0;
