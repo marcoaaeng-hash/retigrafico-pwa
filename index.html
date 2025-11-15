@@ -1,846 +1,1174 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Retigráfico de Roçada</title>
-<link rel="manifest" href="manifest.webmanifest">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Retigráfico">
-<link rel="apple-touch-icon" href="icon-512.png">
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
-<style>
-:root{--ok:#8BC34A;--mid:#FFEB3B;--bad:#F44336;--empty:#E0E0E0;--ink:#020617;--muted:#64748b;--brand:#0ea5e9;--bg:#f8fafc;--card:#ffffff;--radius:16px}
-*{box-sizing:border-box}body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial;margin:0;background:var(--bg);color:var(--ink)}
-.wrap{max-width:1100px;margin:18px auto;padding:0 12px}
-header{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
-header h1{font-size:22px;margin:0}
-.card{background:var(--card);border-radius:var(--radius);box-shadow:0 6px 24px rgba(2,6,23,.06);padding:14px}
-.grid{display:grid;gap:10px}.g-3{grid-template-columns:repeat(3,1fr)}
-.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-label{font-size:13px;color:var(--muted);display:block;margin-bottom:6px}
-input[type=number],input[type=text],button{padding:12px;border-radius:14px;border:1px solid #e5e7eb;font-size:16px;line-height:1.2}
-input[type=number],input[type=text]{background:#fff;width:100%}
-button{background:var(--brand);color:#fff;border:none;cursor:pointer;white-space:nowrap}
-button.ghost{background:#fff;color:var(--brand);border:1px solid var(--brand)}button.bad{background:#ef4444}
-button.warn{background:#f59e0b;color:#1f2937;border:1px solid #f59e0b}
-@media (max-width:768px){.g-3{grid-template-columns:1fr}.row{flex-direction:column;align-items:flex-start}.btn-row{width:100%;display:flex;flex-direction:column;gap:8px}button{width:100%}}
-.card-title{font-size:15px;font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:6px}
-.badge{background:#e0f2fe;color:#0369a1;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600}
-.small{font-size:12px;color:var(--muted)}
-input[type=checkbox]{width:16px;height:16px}
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Retigráfico de Roçada</title>
 
-.chip{
-  padding:6px 12px;
-  border-radius:999px;
-  border:2px solid #d1d5db;
-  background:#f3f4f6;
-  color:#374151;
-  font-size:13px;
-  font-weight:600;
-  cursor:pointer;
-  display:inline-flex;
-  align-items:center;
-  gap:6px;
-  transition:transform .08s, box-shadow .08s, border-color .08s, background .08s, color .08s;
-}
+  <!-- Manifesto PWA -->
+  <link rel="manifest" href="manifest.webmanifest">
 
-/* NÃO selecionado – cores mais suaves/pastel */
-.chip.ok{
-  background:#e6f4d8;
-  border-color:#c5e1a5;
-  color:#33691e;
-}
+  <!-- iOS / Tela inicial -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Retigráfico">
+  <link rel="apple-touch-icon" href="icon-512.png">
 
-.chip.mid{
-  background:#fff9c4;
-  border-color:#fff176;
-  color:#7a6b00;
-}
+  <!-- Bibliotecas para exportação -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
 
-.chip.bad{
-  background:#ffdad6;
-  border-color:#ef9a9a;
-  color:#7a0000;
-}
+  <style>
+    :root{
+      --ok:#8BC34A;
+      --mid:#FFEB3B;
+      --bad:#F44336;
+      --empty:#E0E0E0;
+      --ink:#020617;
+      --muted:#64748b;
+      --brand:#0ea5e9;
+      --bg:#f8fafc;
+      --card:#ffffff;
+      --radius:16px;
+    }
+    *{box-sizing:border-box}
+    body{
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial;
+      margin:0;
+      background:var(--bg);
+      color:var(--ink);
+    }
+    .wrap{max-width:1100px;margin:18px auto;padding:0 12px}
+    header{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+    header h1{font-size:22px;margin:0}
+    .card{
+      background:var(--card);
+      border-radius:var(--radius);
+      box-shadow:0 6px 24px rgba(2,6,23,.06);
+      padding:14px;
+    }
+    .grid{display:grid;gap:10px}
+    .g-3{grid-template-columns:repeat(3,1fr)}
+    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    label{font-size:13px;color:var(--muted);display:block;margin-bottom:6px}
+    input[type=number],input[type=text],button{
+      padding:12px;
+      border-radius:14px;
+      border:1px solid #e5e7eb;
+      font-size:16px;
+      line-height:1.2;
+    }
+    input[type=number],input[type=text]{
+      background:#fff;
+      width:100%;
+    }
+    button{
+      background:var(--brand);
+      color:#fff;
+      border:none;
+      cursor:pointer;
+      white-space:nowrap;
+    }
+    button.ghost{background:#fff;color:var(--brand);border:1px solid var(--brand)}
+    button.bad{background:#ef4444}
+    button.warn{background:#f59e0b;color:#1f2937;border:1px solid #f59e0b}
+    @media (max-width:768px){
+      .g-3{grid-template-columns:1fr}
+      .row{flex-direction:column;align-items:flex-start}
+      .btn-row{width:100%;display:flex;flex-direction:column;gap:8px}
+      button{width:100%}
+    }
+    .card-title{
+      font-size:15px;
+      font-weight:600;
+      margin-bottom:8px;
+      display:flex;
+      align-items:center;
+      gap:6px;
+    }
+    .badge{
+      background:#e0f2fe;
+      color:#0369a1;
+      padding:2px 8px;
+      border-radius:999px;
+      font-size:11px;
+      font-weight:600;
+    }
+    .small{font-size:12px;color:var(--muted)}
+    input[type=checkbox]{width:16px;height:16px}
 
-/* SELECIONADO – cor forte e bem marcada */
-.chip.active{
-  transform:scale(1.06);
-  box-shadow:0 0 0 3px #00000018;
-}
+    /* CHIPS DE STATUS */
+    .chip{
+      padding:6px 12px;
+      border-radius:999px;
+      border:2px solid #d1d5db;
+      background:#f3f4f6;
+      color:#374151;
+      font-size:13px;
+      font-weight:600;
+      cursor:pointer;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      transition:transform .08s, box-shadow .08s, border-color .08s, background .08s, color .08s;
+    }
+    /* Não selecionado */
+    .chip.ok{
+      background:#e6f4d8;
+      border-color:#c5e1a5;
+      color:#33691e;
+    }
+    .chip.mid{
+      background:#fff9c4;
+      border-color:#fff176;
+      color:#7a6b00;
+    }
+    .chip.bad{
+      background:#ffdad6;
+      border-color:#ef9a9a;
+      color:#7a0000;
+    }
+    /* Ativo */
+    .chip.active{
+      transform:scale(1.06);
+      box-shadow:0 0 0 3px #00000018;
+    }
+    .chip.ok.active{
+      background:#4CAF50;
+      border-color:#2e7d32;
+      color:#ffffff;
+      box-shadow:0 0 0 3px #4CAF5077;
+    }
+    .chip.mid.active{
+      background:#FBC02D;
+      border-color:#F9A825;
+      color:#000000;
+      box-shadow:0 0 0 3px #FBC02D77;
+    }
+    .chip.bad.active{
+      background:#E53935;
+      border-color:#C62828;
+      color:#ffffff;
+      box-shadow:0 0 0 3px #E5393577;
+    }
 
-.chip.ok.active{
-  background:#4CAF50;
-  border-color:#2e7d32;
-  color:#ffffff;
-  box-shadow:0 0 0 3px #4CAF5077;
-}
+    .mini{font-size:12px;color:#475569}
+    .photo-thumb{
+      width:56px;height:56px;
+      object-fit:cover;
+      border-radius:8px;
+      border:1px solid #e5e7eb;
+      cursor:pointer;
+      position:relative;
+    }
+    .photo-grid{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+    .photo-empty{
+      width:56px;height:56px;
+      border-radius:8px;
+      border:1px dashed #cbd5e1;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:10px;
+      color:#94a3b8;
+      cursor:pointer;
+    }
+    .table-wrap{
+      max-height:420px;
+      overflow:auto;
+      border-radius:12px;
+      border:1px solid #e5e7eb;
+      margin-top:8px;
+    }
+    table{
+      border-collapse:collapse;
+      width:100%;
+      font-size:13px;
+      min-width:620px;
+    }
+    th,td{
+      border-bottom:1px solid #e5e7eb;
+      padding:6px 8px;
+      text-align:left;
+    }
+    th{
+      background:#f1f5f9;
+      font-size:12px;
+      color:#475569;
+      position:sticky;
+      top:0;
+      z-index:1;
+    }
+    tr:nth-child(even){background:#f9fafb}
+    .status-cell{min-width:170px}
+    .obs-input{
+      width:100%;
+      border-radius:10px;
+      border:1px solid #e5e7eb;
+      padding:6px 8px;
+      font-size:13px;
+    }
+    .heat-grid{
+      display:grid;
+      gap:1px;
+      margin-top:10px;
+      overflow-x:auto;
+      border-radius:12px;
+      border:1px solid #e5e7eb;
+      background:#e5e7eb;
+    }
+    .heat-row{display:grid;grid-auto-flow:column}
+    .heat-header{
+      background:#f1f5f9;
+      font-weight:600;
+      font-size:11px;
+      color:#475569;
+      text-align:center;
+      padding:4px 2px;
+    }
+    .heat-cell{
+      width:20px;
+      height:20px;
+      font-size:10px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+    .heat-label{
+      font-size:12px;
+      font-weight:600;
+      padding:4px 6px;
+      min-width:80px;
+      background:#f8fafc;
+      border-right:1px solid #e5e7eb;
+    }
+    .legend-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+      margin-top:6px;
+      font-size:12px;
+      color:#475569;
+    }
+    .legend-dot{
+      width:12px;height:12px;
+      border-radius:999px;
+      border:1px solid #cbd5e1;
+    }
+    .legend-item{display:flex;align-items:center;gap:4px}
+    .legend-ok{background:var(--ok)}
+    .legend-mid{background:var(--mid)}
+    .legend-bad{background:var(--bad)}
+    .legend-empty{background:var(--empty)}
+    .stats-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:12px;
+      margin-top:10px;
+      font-size:13px;
+      color:#1e293b;
+    }
+    .stat-card{
+      flex:1 1 120px;
+      background:#f8fafc;
+      border-radius:12px;
+      padding:8px 10px;
+      border:1px solid #e5e7eb;
+    }
+    .stat-label{
+      font-size:11px;
+      color:#64748b;
+      margin-bottom:4px;
+      text-transform:uppercase;
+      letter-spacing:.03em;
+    }
+    .stat-value{font-size:16px;font-weight:700}
+    .bar-wrap{
+      height:6px;
+      background:#e5e7eb;
+      border-radius:999px;
+      overflow:hidden;
+      margin-top:4px;
+    }
+    .bar-inner{height:100%}
+    .bar-ok{background:var(--ok)}
+    .bar-mid{background:#facc15}
+    .bar-bad{background:#f97373}
 
-.chip.mid.active{
-  background:#FBC02D;
-  border-color:#F9A825;
-  color:#000000;
-  box-shadow:0 0 0 3px #FBC02D77;
-}
+    .modal-back{
+      position:fixed;
+      inset:0;
+      background:rgba(15,23,42,.75);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      z-index:40;
+    }
+    .modal-inner{
+      background:#020617;
+      border-radius:16px;
+      padding:8px;
+      border:1px solid #334155;
+      max-width:90vw;
+      max-height:90vh;
+      box-shadow:0 20px 60px rgba(15,23,42,.7);
+    }
+    .modal-inner img{
+      max-width:86vw;
+      max-height:80vh;
+      border-radius:12px;
+      display:block;
+    }
+    .modal-actions{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      margin-top:6px;
+      font-size:12px;
+      color:#cbd5f5;
+    }
+    .modal-actions button{
+      font-size:12px;
+      padding:6px 10px;
+      border-radius:999px;
+    }
+    .modal-meta{
+      display:flex;
+      flex-direction:column;
+      gap:2px;
+    }
 
-.chip.bad.active{
-  background:#E53935;
-  border-color:#C62828;
-  color:#ffffff;
-  box-shadow:0 0 0 3px #E5393577;
-}
-.mini{font-size:12px;color:#475569}.photo-thumb{width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid #e5e7eb;cursor:pointer;position:relative}
-.photo-grid{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
-.photo-empty{width:56px;height:56px;border-radius:8px;border:1px dashed #cbd5e1;display:flex;align-items:center;justify-content:center;font-size:10px;color:#94a3b8}
-.table-wrap{max-height:420px;overflow:auto;border-radius:12px;border:1px solid #e5e7eb;margin-top:8px}
-table{border-collapse:collapse;width:100%;font-size:13px;min-width:620px}
-th,td{border-bottom:1px solid #e5e7eb;padding:6px 8px;text-align:left}
-th{background:#f1f5f9;font-size:12px;color:#475569;position:sticky;top:0;z-index:1}
-tr:nth-child(even){background:#f9fafb}
-.status-cell{min-width:170px}
-.obs-input{width:100%;border-radius:10px;border:1px solid #e5e7eb;padding:6px 8px;font-size:13px}
-.heat-grid{display:grid;gap:1px;margin-top:10px;overflow-x:auto;border-radius:12px;border:1px solid #e5e7eb;background:#e5e7eb}
-.heat-row{display:grid;grid-auto-flow:column}
-.heat-header{background:#f1f5f9;font-weight:600;font-size:11px;color:#475569;text-align:center;padding:4px 2px}
-.heat-cell{width:20px;height:20px;font-size:10px;display:flex;align-items:center;justify-content:center}
-.heat-label{font-size:12px;font-weight:600;padding:4px 6px;min-width:80px;background:#f8fafc;border-right:1px solid #e5e7eb}
-.legend-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;font-size:12px;color:#475569}
-.legend-dot{width:12px;height:12px;border-radius:999px;border:1px solid #cbd5e1}
-.legend-item{display:flex;align-items:center;gap:4px}
-.legend-ok{background:var(--ok)}.legend-mid{background:var(--mid)}.legend-bad{background:var(--bad)}.legend-empty{background:var(--empty)}
-.stats-row{display:flex;flex-wrap:wrap;gap:12px;margin-top:10px;font-size:13px;color:#1e293b}
-.stat-card{flex:1 1 120px;background:#f8fafc;border-radius:12px;padding:8px 10px;border:1px solid #e5e7eb}
-.stat-label{font-size:11px;color:#64748b;margin-bottom:4px;text-transform:uppercase;letter-spacing:.03em}
-.stat-value{font-size:16px;font-weight:700}
-.bar-wrap{height:6px;background:#e5e7eb;border-radius:999px;overflow:hidden;margin-top:4px}
-.bar-inner{height:100%}
-.bar-ok{background:var(--ok)}.bar-mid{background:#facc15}.bar-bad{background:#f97373}
-.badge-soft{background:#e0f2fe;color:#0369a1;font-size:11px;padding:2px 8px;border-radius:999px}
-.modal-back{position:fixed;inset:0;background:rgba(15,23,42,.75);display:flex;align-items:center;justify-content:center;z-index:40}
-.modal-inner{background:#020617;border-radius:16px;padding:8px;border:1px solid #334155;max-width:90vw;max-height:90vh;box-shadow:0 20px 60px rgba(15,23,42,.7)}
-.modal-inner img{max-width:86vw;max-height:80vh;border-radius:12px;display:block}
-.modal-actions{display:flex;justify-content:space-between;align-items:center;margin-top:6px;font-size:12px;color:#cbd5f5}
-.modal-actions button{font-size:12px;padding:6px 10px;border-radius:999px}
-.modal-meta{display:flex;flex-direction:column;gap:2px}
-
-/* tooltip */
-.tooltip{position:relative;cursor:help}
-.tooltip:hover .tooltip-box{opacity:1;pointer-events:auto;transform:translateY(0)}
-.tooltip-box{position:absolute;z-index:30;bottom:120%;left:50%;transform:translate(-50%,4px);background:#020617;color:#e5e7eb;padding:6px 8px;font-size:11px;border-radius:8px;white-space:nowrap;opacity:0;pointer-events:none;transition:.12s ease}
-.tooltip-box::after{content:"";position:absolute;top:100%;left:50%;transform:translateX(-50%);border-width:5px;border-style:solid;border-color:#020617 transparent transparent transparent}
-</style>
+    /* Tooltip */
+    .tooltip{position:relative;cursor:help}
+    .tooltip:hover .tooltip-box{
+      opacity:1;
+      pointer-events:auto;
+      transform:translateY(0);
+    }
+    .tooltip-box{
+      position:absolute;
+      z-index:30;
+      bottom:120%;
+      left:50%;
+      transform:translate(-50%,4px);
+      background:#020617;
+      color:#e5e7eb;
+      padding:6px 8px;
+      font-size:11px;
+      border-radius:8px;
+      white-space:nowrap;
+      opacity:0;
+      pointer-events:none;
+      transition:.12s ease;
+    }
+    .tooltip-box::after{
+      content:"";
+      position:absolute;
+      top:100%;
+      left:50%;
+      transform:translateX(-50%);
+      border-width:5px;
+      border-style:solid;
+      border-color:#020617 transparent transparent transparent;
+    }
+  </style>
 </head>
 <body>
-<div class="wrap">
-<header>
-  <img src="icon-192.png" alt="R" style="width:32px;height:32px;border-radius:10px">
-  <div>
-    <h1>Retigráfico de Roçada</h1>
-    <div class="small">PWA offline para registro de condição de faixa por km, com fotos e exportação técnica.</div>
-  </div>
-</header>
+  <div class="wrap">
+    <header>
+      <img src="icon-192.png" alt="R" style="width:32px;height:32px;border-radius:10px">
+      <div>
+        <h1>Retigráfico de Roçada</h1>
+        <div class="small">PWA offline para registro de condição de faixa por km, com fotos e exportação técnica.</div>
+      </div>
+    </header>
 
-<div class="card" style="margin-bottom:12px">
-  <div class="card-title">Parâmetros da Seção <span class="badge">Etapa 1</span></div>
-  <div class="grid g-3">
-    <div>
-      <label>Rodovia / UF</label>
-      <input id="rodoviaUF" type="text" placeholder="Ex.: BR-040 / MG">
+    <!-- PARÂMETROS -->
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-title">
+        Parâmetros da Seção
+        <span class="badge">Etapa 1</span>
+      </div>
+
+      <div class="grid g-3">
+        <div>
+          <label>Rodovia / UF</label>
+          <input id="rodoviaUF" type="text" placeholder="Ex.: BR-040 / MG">
+        </div>
+        <div>
+          <label>KM Inicial</label>
+          <input id="kmStart" type="number" placeholder="Ex.: 273">
+        </div>
+        <div>
+          <label>KM Final</label>
+          <input id="kmEnd" type="number" placeholder="Ex.: 290">
+        </div>
+      </div>
+
+      <div style="margin-top:10px">
+        <label>Sentidos / Seções avaliadas</label>
+        <div id="sentidosBox" class="row" style="margin-top:4px;flex-wrap:wrap"></div>
+        <div class="small" style="margin-top:4px">
+          Selecione os sentidos de pista que serão avaliados neste retigráfico.
+        </div>
+      </div>
+
+      <div class="row btn-row" style="margin-top:12px">
+        <button id="btnGerar">Gerar / Atualizar Tabela</button>
+        <button id="btnReset" class="ghost warn">Limpar tudo</button>
+        <div style="flex:1"></div>
+        <button id="btnExportCSV" class="ghost">Exportar CSV</button>
+        <button id="btnExportXLSX">Exportar XLSX</button>
+      </div>
     </div>
-    <div>
-      <label>KM Inicial</label>
-      <input id="kmStart" type="number" placeholder="Ex.: 273">
+
+    <!-- COLETA -->
+    <div class="card">
+      <div class="card-title">
+        Coleta de Campo
+        <span class="badge">Etapa 2</span>
+      </div>
+      <div class="small" style="margin-bottom:6px">
+        Defina o status por km e sentido, registre observações e anexe até 3 fotos por ponto.
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Sentido</th>
+              <th>KM</th>
+              <th class="status-cell">Status (1=Bom, 2=Regular, 3=Crítico)</th>
+              <th>Observação</th>
+              <th>Fotos</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
     </div>
-    <div>
-      <label>KM Final</label>
-      <input id="kmEnd" type="number" placeholder="Ex.: 290">
+
+    <!-- HEATMAP -->
+    <div class="card" style="margin-top:12px">
+      <div class="card-title">
+        Retigráfico / Heatmap
+        <span class="badge">Etapa 3</span>
+      </div>
+      <div class="small" style="margin-bottom:6px">
+        Matriz de condição por KM x sentido, para análise visual rápida.
+      </div>
+      <div id="heatWrap"></div>
+      <div class="legend-row">
+        <div class="legend-item">
+          <span class="legend-dot legend-ok"></span><span>1 - Bom</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-dot legend-mid"></span><span>2 - Regular</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-dot legend-bad"></span><span>3 - Crítico</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-dot legend-empty"></span><span>Sem dado</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ESTATÍSTICAS -->
+    <div class="card" style="margin-top:12px">
+      <div class="card-title">
+        Estatísticas de Condição
+        <span class="badge">Resumo</span>
+      </div>
+      <div id="statsWrap"></div>
     </div>
   </div>
-  <div style="margin-top:10px">
-    <label>Sentidos / Seções avaliadas</label>
-    <div id="sentidosBox" class="row" style="margin-top:4px;flex-wrap:wrap"></div>
-    <div class="small" style="margin-top:4px">Selecione os sentidos de pista que serão avaliados neste retigráfico.</div>
-  </div>
-  <div class="row btn-row" style="margin-top:12px">
-    <button id="btnGerar">Gerar / Atualizar Tabela</button>
-    <button id="btnReset" class="ghost warn">Limpar tudo</button>
-    <div style="flex:1"></div>
-    <button id="btnExportCSV" class="ghost">Exportar CSV</button>
-    <button id="btnExportXLSX">Exportar XLSX</button>
-  </div>
-</div>
 
-<div class="card">
-  <div class="card-title">Coleta de Campo <span class="badge">Etapa 2</span></div>
-  <div class="small" style="margin-bottom:6px">Defina o status por km e sentido, registre observações e anexe até 3 fotos por ponto.</div>
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>Sentido</th>
-          <th>KM</th>
-          <th class="status-cell">Status (1=Bom, 2=Regular, 3=Crítico)</th>
-          <th>Observação</th>
-          <th>Fotos</th>
-        </tr>
-      </thead>
-      <tbody id="tbody"></tbody>
-    </table>
-  </div>
-</div>
+  <div id="modalRoot"></div>
 
-<div class="card" style="margin-top:12px">
-  <div class="card-title">Retigráfico / Heatmap <span class="badge">Etapa 3</span></div>
-  <div class="small" style="margin-bottom:6px">Matriz de condição por KM x sentido, para análise visual rápida.</div>
-  <div id="heatWrap"></div>
-  <div class="legend-row">
-    <div class="legend-item"><span class="legend-dot legend-ok"></span><span>1 - Bom</span></div>
-    <div class="legend-item"><span class="legend-dot legend-mid"></span><span>2 - Regular</span></div>
-    <div class="legend-item"><span class="legend-dot legend-bad"></span><span>3 - Crítico</span></div>
-    <div class="legend-item"><span class="legend-dot legend-empty"></span><span>Sem dado</span></div>
-  </div>
-</div>
+  <script>
+    const STORAGE_KEY='retigrafico_v38';
+    let state={kmStart:0,kmEnd:0,rodoviaUF:'',selectedSecoes:[],data:{}};
 
-<div class="card" style="margin-top:12px">
-  <div class="card-title">Estatísticas de Condição <span class="badge">Resumo</span></div>
-  <div id="statsWrap"></div>
-</div>
+    function range(a,b){
+      const r=[]; const step=a<=b?1:-1;
+      for(let i=a;i!==b+step;i+=step) r.push(i);
+      return r;
+    }
+    function ensure(secao,km){
+      state.data[secao]??={};
+      state.data[secao][km]??={status:null,obs:'',photos:[]};
+    }
+    function save(){
+      localStorage.setItem(STORAGE_KEY,JSON.stringify(state));
+    }
+    function load(){
+      try{
+        const raw=localStorage.getItem(STORAGE_KEY);
+        if(raw){state=JSON.parse(raw)||state;}
+      }catch(e){console.error(e);}
+    }
+    function getSecoes(){
+      return state.selectedSecoes && state.selectedSecoes.length
+        ? state.selectedSecoes
+        : ["Sul","Canteiro Central","Norte"];
+    }
 
-</div>
+    function renderSentidosBox(){
+      const box=document.getElementById('sentidosBox');
+      box.innerHTML='';
+      const sentidos=["Sul","Canteiro Central","Norte","Leste","Oeste"];
+      sentidos.forEach(s=>{
+        const id='sent_'+s.replace(/\s+/g,'_');
+        const wrap=document.createElement('label');
+        wrap.style.display='flex';
+        wrap.style.alignItems='center';
+        wrap.style.gap='6px';
+        wrap.style.fontSize='13px';
 
-<div id="modalRoot"></div>
-
-<script>
-const STORAGE_KEY='retigrafico_v38';
-let state={kmStart:0,kmEnd:0,rodoviaUF:'',selectedSecoes:[],data:{}};
-
-function range(a,b){const r=[];const step=a<=b?1:-1;for(let i=a;i!==b+step;i+=step)r.push(i);return r}
-function ensure(secao,km){state.data[secao]??={};state.data[secao][km]??={status:null,obs:'',photos:[]}}
-function save(){localStorage.setItem(STORAGE_KEY,JSON.stringify(state))}
-function load(){try{const raw=localStorage.getItem(STORAGE_KEY);if(raw){state=JSON.parse(raw)||state}}catch(e){console.error(e)}}
-function getSecoes(){ return state.selectedSecoes && state.selectedSecoes.length ? state.selectedSecoes : ["Sul","Canteiro Central","Norte"]; }
-
-function renderSentidosBox(){
-  const box=document.getElementById('sentidosBox');
-  box.innerHTML='';
-  const sentidos=["Sul","Canteiro Central","Norte","Leste","Oeste"];
-  sentidos.forEach(s=>{
-    const id='sent_'+s.replace(/\s+/g,'_');
-    const wrap=document.createElement('label');
-    wrap.style.display='flex';
-    wrap.style.alignItems='center';
-    wrap.style.gap='6px';
-    wrap.style.fontSize='13px';
-    const cb=document.createElement('input');
-    cb.type='checkbox'; cb.id=id; cb.value=s;
-    if(getSecoes().includes(s)) cb.checked=true;
-    cb.onchange=()=>{
-      const selected=Array.from(document.querySelectorAll('#sentidosBox input[type=checkbox]:checked')).map(i=>i.value);
-      state.selectedSecoes=selected;
-      save(); renderAll();
-    };
-    const span=document.createElement('span');
-    span.textContent=s;
-    wrap.appendChild(cb); wrap.appendChild(span);
-    box.appendChild(wrap);
-  });
-}
-
-function renderTable(){
-  const tbody=document.getElementById('tbody');
-  tbody.innerHTML='';
-  if(!state.kmStart && !state.kmEnd) return;
-  const kms=range(state.kmStart,state.kmEnd);
-  const sentidos=getSecoes();
-  sentidos.forEach(secao=>{
-    kms.forEach(km=>{
-      ensure(secao,km);
-      const ponto=state.data[secao][km];
-
-      const tr=document.createElement('tr');
-
-      const tdSec=document.createElement('td');
-      tdSec.textContent=secao;
-      tr.appendChild(tdSec);
-
-      const tdKm=document.createElement('td');
-      tdKm.textContent=km;
-      tr.appendChild(tdKm);
-
-      const tdStatus=document.createElement('td');
-      tdStatus.className='status-cell';
-      const rowStatus=document.createElement('div');
-      rowStatus.className='row';
-
-      const mkChip=(label,val,cls)=>{
-        const div=document.createElement('div');
-        div.className=`chip ${cls}`;
-        if(ponto.status===val) div.classList.add('active');
-        div.innerHTML=`<span>${val}</span><span>${label}</span>`;
-        div.onclick=()=>{
-          ponto.status=(ponto.status===val?null:val);
-          save(); renderAll();
+        const cb=document.createElement('input');
+        cb.type='checkbox'; cb.id=id; cb.value=s;
+        if(getSecoes().includes(s)) cb.checked=true;
+        cb.onchange=()=>{
+          const selected=Array.from(
+            document.querySelectorAll('#sentidosBox input[type=checkbox]:checked')
+          ).map(i=>i.value);
+          state.selectedSecoes=selected;
+          save();
+          renderAll();
         };
-        return div;
-      };
-      rowStatus.appendChild(mkChip('Bom',1,'ok'));
-      rowStatus.appendChild(mkChip('Regular',2,'mid'));
-      rowStatus.appendChild(mkChip('Crítico',3,'bad'));
-      tdStatus.appendChild(rowStatus);
-      tr.appendChild(tdStatus);
 
-      const tdObs=document.createElement('td');
-      const inputObs=document.createElement('input');
-      inputObs.className='obs-input';
-      inputObs.placeholder='Observações de campo, restrições, interferências...';
-      inputObs.value=ponto.obs||'';
-      inputObs.onchange=()=>{ponto.obs=inputObs.value;save()};
-      tdObs.appendChild(inputObs);
-      tr.appendChild(tdObs);
+        const span=document.createElement('span');
+        span.textContent=s;
+        wrap.appendChild(cb);
+        wrap.appendChild(span);
+        box.appendChild(wrap);
+      });
+    }
 
-      const tdFotos=document.createElement('td');
-      const wrap=document.createElement('div');
-      const grid=document.createElement('div');
-      grid.className='photo-grid';
+    function renderTable(){
+      const tbody=document.getElementById('tbody');
+      tbody.innerHTML='';
+      if(!state.kmStart && !state.kmEnd) return;
+      const kms=range(state.kmStart,state.kmEnd);
+      const sentidos=getSecoes();
 
-      (ponto.photos||[]).forEach((src,idx)=>{
-        const img=document.createElement('img');
-        img.src=src; img.className='photo-thumb';
+      sentidos.forEach(secao=>{
+        kms.forEach(km=>{
+          ensure(secao,km);
+          const ponto=state.data[secao][km];
 
-        let pressTimer=null;
-        img.onmousedown=img.ontouchstart=(ev)=>{
-          ev.preventDefault();
-          pressTimer=setTimeout(()=>{
-            if(confirm('Remover esta foto?')){
-              ponto.photos.splice(idx,1);
+          const tr=document.createElement('tr');
+
+          const tdSec=document.createElement('td');
+          tdSec.textContent=secao;
+          tr.appendChild(tdSec);
+
+          const tdKm=document.createElement('td');
+          tdKm.textContent=km;
+          tr.appendChild(tdKm);
+
+          const tdStatus=document.createElement('td');
+          tdStatus.className='status-cell';
+          const rowStatus=document.createElement('div');
+          rowStatus.className='row';
+
+          const mkChip=(label,val,cls)=>{
+            const div=document.createElement('div');
+            div.className=`chip ${cls}`;
+            if(ponto.status===val) div.classList.add('active');
+            div.innerHTML=`<span>${val}</span><span>${label}</span>`;
+            div.onclick=()=>{
+              ponto.status=(ponto.status===val?null:val);
               save(); renderAll();
-            }
-          },600);
-        };
-        img.onmouseup=img.onmouseleave=img.ontouchend=()=>{
-          if(pressTimer){clearTimeout(pressTimer);pressTimer=null;}
-        };
-        img.onclick=()=>{
-          if(pressTimer){clearTimeout(pressTimer);pressTimer=null;}
-          openModal(src,secao,km);
-        };
-
-        grid.appendChild(img);
-      });
-
-      if((ponto.photos||[]).length<3){
-        const add=document.createElement('label');
-        add.className='photo-empty';
-        add.textContent='+ foto';
-        const inp=document.createElement('input');
-        inp.type='file';
-        inp.accept='image/*';
-        inp.capture='environment';
-        inp.style.display='none';
-        inp.onchange=e=>{
-          const file=e.target.files[0];
-          if(!file) return;
-          const reader=new FileReader();
-          reader.onload=async ev=>{
-            const dataUrl=ev.target.result;
-            const annotated=await annotatePhoto(dataUrl,secao,km);
-            ponto.photos=ponto.photos||[];
-            ponto.photos.push(annotated);
-            save(); renderAll();
+            };
+            return div;
           };
-          reader.readAsDataURL(file);
-        };
-        add.onclick=()=>inp.click();
-        add.appendChild(inp);
-        grid.appendChild(add);
-      }
+          rowStatus.appendChild(mkChip('Bom',1,'ok'));
+          rowStatus.appendChild(mkChip('Regular',2,'mid'));
+          rowStatus.appendChild(mkChip('Crítico',3,'bad'));
+          tdStatus.appendChild(rowStatus);
+          tr.appendChild(tdStatus);
 
-      wrap.appendChild(grid);
-      tdFotos.appendChild(wrap);
-      tr.appendChild(tdFotos);
+          const tdObs=document.createElement('td');
+          const inputObs=document.createElement('input');
+          inputObs.className='obs-input';
+          inputObs.placeholder='Observações de campo, restrições, interferências...';
+          inputObs.value=ponto.obs||'';
+          inputObs.onchange=()=>{ponto.obs=inputObs.value;save();};
+          tdObs.appendChild(inputObs);
+          tr.appendChild(tdObs);
 
-      tbody.appendChild(tr);
-    });
-  });
-}
+          const tdFotos=document.createElement('td');
+          const wrap=document.createElement('div');
+          const grid=document.createElement('div');
+          grid.className='photo-grid';
 
-function gps(){
-  return new Promise(resolve=>{
-    if(!navigator.geolocation){resolve(null);return;}
-    navigator.geolocation.getCurrentPosition(
-      pos=>{resolve({lat:pos.coords.latitude,lon:pos.coords.longitude});},
-      ()=>resolve(null),
-      {enableHighAccuracy:true,timeout:8000,maximumAge:30000}
-    );
-  });
-}
+          (ponto.photos||[]).forEach((src,idx)=>{
+            const img=document.createElement('img');
+            img.src=src; img.className='photo-thumb';
 
-async function annotatePhoto(dataUrl,secao,km){
-  const img=new Image();
-  img.src=dataUrl;
-  await new Promise(res=>{img.onload=res;});
-  const canvas=document.createElement('canvas');
-  const maxW=1024;
-  const scale=Math.min(1,maxW/img.width);
-  canvas.width=img.width*scale;
-  canvas.height=img.height*scale;
-  const ctx=canvas.getContext('2d');
-  ctx.drawImage(img,0,0,canvas.width,canvas.height);
+            let pressTimer=null;
+            img.onmousedown=img.ontouchstart=(ev)=>{
+              ev.preventDefault();
+              pressTimer=setTimeout(()=>{
+                if(confirm('Remover esta foto?')){
+                  ponto.photos.splice(idx,1);
+                  save(); renderAll();
+                }
+              },600);
+            };
+            img.onmouseup=img.onmouseleave=img.ontouchend=()=>{
+              if(pressTimer){clearTimeout(pressTimer);pressTimer=null;}
+            };
+            img.onclick=()=>{
+              if(pressTimer){clearTimeout(pressTimer);pressTimer=null;}
+              openModal(src,secao,km);
+            };
 
-  const now=new Date();
-  const ts=now.toLocaleString('pt-BR',{hour12:false});
-  const g=await gps();
-  const line1=ts;
-  const line2=g?`${g.lat.toFixed(5)} ${g.lon.toFixed(5)}`:'GPS indisponível';
-  const line3=`Km ${km} - ${secao}`;
+            grid.appendChild(img);
+          });
 
-  const pad=8;
-  const boxH=58;
-  ctx.fillStyle='rgba(15,23,42,0.72)';
-  ctx.fillRect(0,canvas.height-boxH,canvas.width,boxH);
-  ctx.fillStyle='#e5f0ff';
-  ctx.font='12px system-ui';
-  ctx.textBaseline='top';
-  ctx.fillText(line1,pad,canvas.height-boxH+6);
-  ctx.fillText(line2,pad,canvas.height-boxH+22);
-  ctx.fillText(line3,pad,canvas.height-boxH+38);
+          if((ponto.photos||[]).length<3){
+            const add=document.createElement('label');
+            add.className='photo-empty';
+            add.textContent='+ foto';
+            const inp=document.createElement('input');
+            inp.type='file';
+            inp.accept='image/*';
+            inp.capture='environment';
+            inp.style.display='none';
+            inp.onchange=e=>{
+              const file=e.target.files[0];
+              if(!file) return;
+              const reader=new FileReader();
+              reader.onload=async ev=>{
+                const dataUrl=ev.target.result;
+                const annotated=await annotatePhoto(dataUrl,secao,km);
+                ponto.photos=ponto.photos||[];
+                ponto.photos.push(annotated);
+                save(); renderAll();
+              };
+              reader.readAsDataURL(file);
+            };
+            add.onclick=()=>inp.click();
+            add.appendChild(inp);
+            grid.appendChild(add);
+          }
 
-  return canvas.toDataURL('image/jpeg',0.8);
-}
+          wrap.appendChild(grid);
+          tdFotos.appendChild(wrap);
+          tr.appendChild(tdFotos);
 
-function openModal(src,secao,km){
-  const root=document.getElementById('modalRoot');
-  root.innerHTML='';
-  const back=document.createElement('div');
-  back.className='modal-back';
-  back.onclick=e=>{if(e.target===back) root.innerHTML='';};
+          tbody.appendChild(tr);
+        });
+      });
+    }
 
-  const inner=document.createElement('div');
-  inner.className='modal-inner';
-  const img=document.createElement('img');
-  img.src=src;
-  inner.appendChild(img);
+    function gps(){
+      return new Promise(resolve=>{
+        if(!navigator.geolocation){resolve(null);return;}
+        navigator.geolocation.getCurrentPosition(
+          pos=>{resolve({lat:pos.coords.latitude,lon:pos.coords.longitude});},
+          ()=>resolve(null),
+          {enableHighAccuracy:true,timeout:8000,maximumAge:30000}
+        );
+      });
+    }
 
-  const footer=document.createElement('div');
-  footer.className='modal-actions';
-  const meta=document.createElement('div');
-  meta.className='modal-meta';
-  meta.innerHTML=`<span>${secao} • Km ${km}</span><span style="opacity:.8">Toque fora da imagem para fechar</span>`;
-  const btn=document.createElement('button');
-  btn.className='ghost';
-  btn.textContent='Fechar';
-  btn.onclick=()=>{root.innerHTML='';};
-  footer.appendChild(meta);
-  footer.appendChild(btn);
-  inner.appendChild(footer);
+    async function annotatePhoto(dataUrl,secao,km){
+      const img=new Image();
+      img.src=dataUrl;
+      await new Promise(res=>{img.onload=res;});
+      const canvas=document.createElement('canvas');
+      const maxW=1024;
+      const scale=Math.min(1,maxW/img.width);
+      canvas.width=img.width*scale;
+      canvas.height=img.height*scale;
+      const ctx=canvas.getContext('2d');
+      ctx.drawImage(img,0,0,canvas.width,canvas.height);
 
-  back.appendChild(inner);
-  root.appendChild(back);
-}
+      const now=new Date();
+      const ts=now.toLocaleString('pt-BR',{hour12:false});
+      const g=await gps();
+      const line1=ts;
+      const line2=g?`${g.lat.toFixed(5)} ${g.lon.toFixed(5)}`:'GPS indisponível';
+      const line3=`Km ${km} - ${secao}`;
 
-function renderHeat(){
-  const wrap=document.getElementById('heatWrap');
-  wrap.innerHTML='';
-  if(!state.kmStart && !state.kmEnd) return;
-  const kms=range(state.kmStart,state.kmEnd);
-  const sentidos=getSecoes();
+      const pad=8;
+      const boxH=58;
+      ctx.fillStyle='rgba(15,23,42,0.72)';
+      ctx.fillRect(0,canvas.height-boxH,canvas.width,boxH);
+      ctx.fillStyle='#e5f0ff';
+      ctx.font='12px system-ui';
+      ctx.textBaseline='top';
+      ctx.fillText(line1,pad,canvas.height-boxH+6);
+      ctx.fillText(line2,pad,canvas.height-boxH+22);
+      ctx.fillText(line3,pad,canvas.height-boxH+38);
 
-  const frame=document.createElement('div');
-  frame.className='heat-grid';
+      return canvas.toDataURL('image/jpeg',0.8);
+    }
 
-  const headerRow=document.createElement('div');
-  headerRow.className='heat-row';
-  const corner=document.createElement('div');
-  corner.className='heat-label';
-  corner.textContent='Sentido / KM';
-  headerRow.appendChild(corner);
-  kms.forEach(km=>{
-    const cell=document.createElement('div');
-    cell.className='heat-header';
-    cell.textContent=km;
-    headerRow.appendChild(cell);
-  });
-  frame.appendChild(headerRow);
+    function openModal(src,secao,km){
+      const root=document.getElementById('modalRoot');
+      root.innerHTML='';
+      const back=document.createElement('div');
+      back.className='modal-back';
+      back.onclick=e=>{if(e.target===back) root.innerHTML='';};
 
-  sentidos.forEach(secao=>{
-    const row=document.createElement('div');
-    row.className='heat-row';
-    const lbl=document.createElement('div');
-    lbl.className='heat-label';
-    lbl.textContent=secao;
-    row.appendChild(lbl);
+      const inner=document.createElement('div');
+      inner.className='modal-inner';
+      const img=document.createElement('img');
+      img.src=src;
+      inner.appendChild(img);
 
-    kms.forEach(km=>{
-      ensure(secao,km);
-      const ponto=state.data[secao][km];
-      const v=ponto.status;
-      const cell=document.createElement('div');
-      cell.className='heat-cell tooltip';
-      let color='var(--empty)', text='';
-      if(v===1){color='var(--ok)';text='1';}
-      else if(v===2){color='var(--mid)';text='2';}
-      else if(v===3){color='var(--bad)';text='3';}
-      cell.style.background=color;
-      cell.textContent=text;
+      const footer=document.createElement('div');
+      footer.className='modal-actions';
+      const meta=document.createElement('div');
+      meta.className='modal-meta';
+      meta.innerHTML=`<span>${secao} • Km ${km}</span><span style="opacity:.8">Toque fora da imagem para fechar</span>`;
+      const btn=document.createElement('button');
+      btn.className='ghost';
+      btn.textContent='Fechar';
+      btn.onclick=()=>{root.innerHTML='';};
+      footer.appendChild(meta);
+      footer.appendChild(btn);
+      inner.appendChild(footer);
 
-      const tip=document.createElement('div');
-      tip.className='tooltip-box';
-      const label=v===1?'Bom':v===2?'Regular':v===3?'Crítico':'Sem dado';
-      tip.textContent=`${secao} • Km ${km} • ${label}`;
-      cell.appendChild(tip);
+      back.appendChild(inner);
+      root.appendChild(back);
+    }
 
-      row.appendChild(cell);
-    });
+    function renderHeat(){
+      const wrap=document.getElementById('heatWrap');
+      wrap.innerHTML='';
+      if(!state.kmStart && !state.kmEnd) return;
+      const kms=range(state.kmStart,state.kmEnd);
+      const sentidos=getSecoes();
 
-    frame.appendChild(row);
-  });
+      const frame=document.createElement('div');
+      frame.className='heat-grid';
 
-  wrap.appendChild(frame);
-}
+      const headerRow=document.createElement('div');
+      headerRow.className='heat-row';
+      const corner=document.createElement('div');
+      corner.className='heat-label';
+      corner.textContent='Sentido / KM';
+      headerRow.appendChild(corner);
+      kms.forEach(km=>{
+        const cell=document.createElement('div');
+        cell.className='heat-header';
+        cell.textContent=km;
+        headerRow.appendChild(cell);
+      });
+      frame.appendChild(headerRow);
 
-function renderStats(){
-  const wrap=document.getElementById('statsWrap');
-  wrap.innerHTML='';
-  const kms=range(state.kmStart,state.kmEnd);
-  const sentidos=getSecoes();
-  let total=0,b=0,m=0,c=0;
-  sentidos.forEach(sec=>{
-    kms.forEach(km=>{
-      const p=state.data[sec] && state.data[sec][km];
-      if(!p || !p.status) return;
-      total++;
-      if(p.status===1) b++;
-      else if(p.status===2) m++;
-      else if(p.status===3) c++;
-    });
-  });
+      sentidos.forEach(secao=>{
+        const row=document.createElement('div');
+        row.className='heat-row';
+        const lbl=document.createElement('div');
+        lbl.className='heat-label';
+        lbl.textContent=secao;
+        row.appendChild(lbl);
 
-  const root=document.createElement('div');
-  root.className='stats-row';
+        kms.forEach(km=>{
+          ensure(secao,km);
+          const ponto=state.data[secao][km];
+          const v=ponto.status;
+          const cell=document.createElement('div');
+          cell.className='heat-cell tooltip';
+          let color='var(--empty)', text='';
+          if(v===1){color='var(--ok)';text='1';}
+          else if(v===2){color='var(--mid)';text='2';}
+          else if(v===3){color='var(--bad)';text='3';}
+          cell.style.background=color;
+          cell.textContent=text;
 
-  const mk=(label,val,pct,colorClass)=>{
-    const card=document.createElement('div');
-    card.className='stat-card';
-    const l=document.createElement('div');
-    l.className='stat-label';
-    l.textContent=label;
-    const v=document.createElement('div');
-    v.className='stat-value';
-    v.textContent=val;
-    const bar=document.createElement('div');
-    bar.className='bar-wrap';
-    const inner=document.createElement('div');
-    inner.className=`bar-inner ${colorClass}`;
-    inner.style.width=pct+'%';
-    bar.appendChild(inner);
+          const tip=document.createElement('div');
+          tip.className='tooltip-box';
+          const label=v===1?'Bom':v===2?'Regular':v===3?'Crítico':'Sem dado';
+          tip.textContent=`${secao} • Km ${km} • ${label}`;
+          cell.appendChild(tip);
 
-    const pctSpan=document.createElement('div');
-    pctSpan.className='small';
-    pctSpan.textContent=total?`${pct}% do total`:'Sem dados';
+          row.appendChild(cell);
+        });
 
-    card.appendChild(l);
-    card.appendChild(v);
-    card.appendChild(bar);
-    card.appendChild(pctSpan);
-    return card;
-  };
-
-  const pb=total?Math.round(100*b/total):0;
-  const pm=total?Math.round(100*m/total):0;
-  const pc=total?Math.round(100*c/total):0;
-
-  root.appendChild(mk('Km avaliados',''+total,100,''));
-  root.appendChild(mk('Bom (1)',''+b,pb,'bar-ok'));
-  root.appendChild(mk('Regular (2)',''+m,pm,'bar-mid'));
-  root.appendChild(mk('Crítico (3)',''+c,pc,'bar-bad'));
-
-  wrap.appendChild(root);
-}
-
-function rowsCSV(){
-  const kms=range(state.kmStart,state.kmEnd);
-  const sentidos=getSecoes();
-  const rows=[["rodoviaUF","secao","km","status(1=Bom,2=Reg,3=Cri)","observacao","foto1","foto2","foto3"]];
-  sentidos.forEach(sec=>{
-    kms.forEach(km=>{
-      ensure(sec,km);
-      const ponto=state.data[sec][km];
-      const status=ponto.status||'';
-      const obs=(ponto.obs||'').replace(/"/g,'""');
-      const photos=ponto.photos||[];
-      rows.push([
-        state.rodoviaUF||'',
-        sec,
-        km,
-        status,
-        obs,
-        photos[0]||'',
-        photos[1]||'',
-        photos[2]||''
-      ]);
-    });
-  });
-  return rows;
-}
-
-function exportCSV(){
-  const rows=rowsCSV();
-  const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
-  const blob=new Blob([csv],{type:'text/plain;charset=utf-8'});
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download='retigrafico.csv';
-  a.click();
-  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
-}
-
-// Pie chart
-function makePiePNG(pb,pm,pc){
-  const c=document.createElement('canvas');
-  c.width=420;c.height=300;
-  const ctx=c.getContext('2d');
-  const data=[pb,pm,pc];
-  const colors=['#8BC34A','#FFEB3B','#F44336'];
-  const labels=['Bom','Regular','Crítico'];
-  const total=data.reduce((a,b)=>a+b,0)||1;
-  let start=-Math.PI/2;
-
-  data.forEach((v,i)=>{
-    const angle=(v/total)*Math.PI*2;
-    ctx.beginPath();
-    ctx.moveTo(150,140);
-    ctx.arc(150,140,110,start,start+angle);
-    ctx.closePath();
-    ctx.fillStyle=colors[i];
-    ctx.fill();
-    start+=angle;
-  });
-
-  ctx.fillStyle='#0f172a';
-  ctx.font='12px system-ui';
-  ctx.textBaseline='top';
-  labels.forEach((lab,i)=>{
-    ctx.fillStyle=colors[i];
-    ctx.fillRect(290,70+i*24,14,14);
-    ctx.fillStyle='#0f172a';
-    ctx.fillText(`${lab} (${data[i]}%)`,310,68+i*24);
-  });
-
-  return c.toDataURL('image/png');
-}
-
-// XLSX export
-async function exportXLSX(){
-  const GREEN='8BC34A', YELLOW='FFEB3B', RED='F44336', GRAY='E0E0E0';
-  const wb=new ExcelJS.Workbook();
-
-  // =========================
-  // ABA 1 – COLETA
-  // =========================
-  const ws1=wb.addWorksheet('Coleta',{properties:{defaultRowHeight:20}});
-  const header=["rodoviaUF","secao","km","status(1=Bom,2=Reg,3=Cri)","observacao","foto1","foto2","foto3"];
-  const headRow=ws1.addRow(header);
-  headRow.eachCell(c=>{
-    c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF0B3D91'}};
-    c.font={color:{argb:'FFFFFFFF'},bold:true};
-    c.alignment={vertical:'middle',horizontal:'center'};
-    c.border={top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
-  });
-  [18,16,10,16,36,18,18,18].forEach((w,i)=>ws1.getColumn(i+1).width=w);
-
-  const kms = range(state.kmStart, state.kmEnd);
-  const sentidos = getSecoes();
-
-  sentidos.forEach(secao=>{
-    kms.forEach(km=>{
-      const dataSec = state.data[secao] || {};
-      const ponto = dataSec[km] || { status:null, obs:'', photos:[] };
-      const status = ponto.status || '';
-      const obs = (ponto.obs || '').replace(/\"/g,'\"\"');
-      const photos = ponto.photos || [];
-
-      const row=ws1.addRow([
-        state.rodoviaUF || '',
-        secao,
-        km,
-        status,
-        obs,
-        photos[0] || '',
-        photos[1] || '',
-        photos[2] || ''
-      ]);
-
-      row.height=76;
-      row.eachCell(c=>{
-        c.border={top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
-        c.alignment={vertical:'middle',horizontal:(c.col==3||c.col==4)?'center':'left'};
+        frame.appendChild(row);
       });
 
-      // imagens nas colunas F, G, H
-      for(let f=0;f<3;f++){
-        const dataURL = photos[f];
-        if(!dataURL) continue;
-        const base64 = dataURL.includes(',') ? dataURL.split(',')[1] : dataURL;
-        const imgId = wb.addImage({base64,extension:'jpeg'});
-        const col = 6 + f; // F,G,H
-        ws1.addImage(imgId,{
-          tl:{col:col-1+0.12,row:row.number-1+0.20},
-          ext:{width:110,height:72}
+      wrap.appendChild(frame);
+    }
+
+    function renderStats(){
+      const wrap=document.getElementById('statsWrap');
+      wrap.innerHTML='';
+      const kms=range(state.kmStart,state.kmEnd);
+      const sentidos=getSecoes();
+
+      let total=0,b=0,m=0,c=0;
+      sentidos.forEach(sec=>{
+        kms.forEach(km=>{
+          const p=state.data[sec] && state.data[sec][km];
+          if(!p || !p.status) return;
+          total++;
+          if(p.status===1) b++;
+          else if(p.status===2) m++;
+          else if(p.status===3) c++;
         });
-      }
-    });
-  });
+      });
 
-  // =========================
-  // ABA 2 – RETIGRÁFICO
-  // =========================
-  const ws2=wb.addWorksheet('Retigrafico',{properties:{defaultRowHeight:18}});
-  ws2.getCell('A1').value='Rodovia/UF';
-  ws2.getCell('B1').value=state.rodoviaUF||'';
-  ws2.getRow(1).font={bold:true};
-  ws2.getColumn(1).width=14;
-  ws2.getColumn(2).width=20;
+      const root=document.createElement('div');
+      root.className='stats-row';
 
-  ws2.getCell('A3').value='Legenda';
-  const legend=[
-    {col:'B',label:'1',name:'Bom',color:GREEN},
-    {col:'D',label:'2',name:'Regular',color:YELLOW},
-    {col:'F',label:'3',name:'Crítico',color:RED}
-  ];
-  legend.forEach(L=>{
-    const cNum = ws2.getCell(`${L.col}2`);
-    cNum.value=L.label;
-    cNum.font={bold:true};
-    cNum.alignment={horizontal:'center',vertical:'middle'};
-    cNum.fill={type:'pattern',pattern:'solid',fgColor:{argb:L.color}};
-    cNum.border={top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
+      const mk=(label,val,pct,colorClass)=>{
+        const card=document.createElement('div');
+        card.className='stat-card';
+        const l=document.createElement('div');
+        l.className='stat-label';
+        l.textContent=label;
+        const v=document.createElement('div');
+        v.className='stat-value';
+        v.textContent=val;
+        const bar=document.createElement('div');
+        bar.className='bar-wrap';
+        const inner=document.createElement('div');
+        inner.className='bar-inner '+colorClass;
+        inner.style.width=pct+'%';
+        bar.appendChild(inner);
+        const pctSpan=document.createElement('div');
+        pctSpan.className='small';
+        pctSpan.textContent=total?`${pct}% do total`:'Sem dados';
+        card.appendChild(l);
+        card.appendChild(v);
+        card.appendChild(bar);
+        card.appendChild(pctSpan);
+        return card;
+      };
 
-    const cName = ws2.getCell(`${L.col}3`);
-    cName.value=L.name;
-  });
+      const pb=total?Math.round(100*b/total):0;
+      const pm=total?Math.round(100*m/total):0;
+      const pc=total?Math.round(100*c/total):0;
 
-  const headerRow = 6;
-  ws2.getCell(headerRow,1).value='Sentido';
-  ws2.getRow(headerRow).font={bold:true};
+      root.appendChild(mk('Km avaliados',''+total,100,''));
+      root.appendChild(mk('Bom (1)',''+b,pb,'bar-ok'));
+      root.appendChild(mk('Regular (2)',''+m,pm,'bar-mid'));
+      root.appendChild(mk('Crítico (3)',''+c,pc,'bar-bad'));
 
-  const colOffset = 2;
-  kms.forEach((km,idx)=>{
-    const col = colOffset + idx;
-    const cell = ws2.getCell(headerRow,col);
-    cell.value = km;
-    cell.alignment={horizontal:'center',vertical:'middle',textRotation:90};
-    cell.border={top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
-    ws2.getColumn(col).width=4;
-  });
-  ws2.getColumn(1).width=18;
+      wrap.appendChild(root);
+    }
 
-  const startRow = headerRow + 1;
+    function rowsCSV(){
+      const kms=range(state.kmStart,state.kmEnd);
+      const sentidos=getSecoes();
+      const rows=[["rodoviaUF","secao","km","status(1=Bom,2=Reg,3=Cri)","observacao","foto1","foto2","foto3"]];
+      sentidos.forEach(sec=>{
+        kms.forEach(km=>{
+          ensure(sec,km);
+          const ponto=state.data[sec][km];
+          const status=ponto.status||'';
+          const obs=(ponto.obs||'').replace(/"/g,'""');
+          const photos=ponto.photos||[];
+          rows.push([
+            state.rodoviaUF||'',
+            sec,
+            km,
+            status,
+            obs,
+            photos[0]||'',
+            photos[1]||'',
+            photos[2]||''
+          ]);
+        });
+      });
+      return rows;
+    }
 
-  sentidos.forEach((secao,rIdx)=>{
-    const rowNum = startRow + rIdx;
-    const cSentido = ws2.getCell(rowNum,1);
-    cSentido.value = secao;
-    cSentido.font={bold:true};
-    cSentido.alignment={vertical:'middle',horizontal:'left'};
-    cSentido.border={top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
+    function exportCSV(){
+      const rows=rowsCSV();
+      const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+      const blob=new Blob([csv],{type:'text/plain;charset=utf-8'});
+      const a=document.createElement('a');
+      a.href=URL.createObjectURL(blob);
+      a.download='retigrafico.csv';
+      a.click();
+      setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+    }
 
-    kms.forEach((km,idx)=>{
-      const col = colOffset + idx;
-      const cell = ws2.getCell(rowNum,col);
-      const ponto = (state.data[secao] && state.data[secao][km]) || {};
-      const v = ponto.status;
+    // Gera PNG do gráfico de pizza
+    function makePiePNG(pb,pm,pc){
+      const c=document.createElement('canvas');
+      c.width=420;c.height=300;
+      const ctx=c.getContext('2d');
+      const data=[pb,pm,pc];
+      const colors=['#8BC34A','#FFEB3B','#F44336'];
+      const labels=['Bom','Regular','Crítico'];
+      const total=data.reduce((a,b)=>a+b,0)||1;
+      let start=-Math.PI/2;
 
-      let fill = GRAY;
-      if(v===1) fill = GREEN;
-      else if(v===2) fill = YELLOW;
-      else if(v===3) fill = RED;
+      data.forEach((v,i)=>{
+        const angle=(v/total)*Math.PI*2;
+        ctx.beginPath();
+        ctx.moveTo(150,140);
+        ctx.arc(150,140,110,start,start+angle);
+        ctx.closePath();
+        ctx.fillStyle=colors[i];
+        ctx.fill();
+        start+=angle;
+      });
 
-      if(v) cell.value = v;
-      cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:fill}};
-      cell.alignment={horizontal:'center',vertical:'middle'};
-      cell.border={top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
-      ws2.getRow(rowNum).height=22;
-    });
-  });
+      ctx.fillStyle='#0f172a';
+      ctx.font='12px system-ui';
+      ctx.textBaseline='top';
+      labels.forEach((lab,i)=>{
+        ctx.fillStyle=colors[i];
+        ctx.fillRect(290,70+i*24,14,14);
+        ctx.fillStyle='#0f172a';
+        ctx.fillText(`${lab} (${data[i]}%)`,310,68+i*24);
+      });
 
-  // =========================
-  // ESTATÍSTICAS
-  // =========================
-  let total=0,b=0,m=0,c=0;
-  sentidos.forEach(secao=>{
-    kms.forEach(km=>{
-      const ponto = state.data[secao] && state.data[secao][km];
-      if(!ponto || !ponto.status) return;
-      const v = ponto.status;
-      if(v===1) b++;
-      else if(v===2) m++;
-      else if(v===3) c++;
-      if(v) total++;
-    });
-  });
-  const pb = total?Math.round(100*b/total):0;
-  const pm = total?Math.round(100*m/total):0;
-  const pc = total?Math.round(100*c/total):0;
+      return c.toDataURL('image/png');
+    }
 
-  ws2.getCell('H6').value='Percentuais';
-  ws2.getCell('H6').font={bold:true};
-  ws2.getCell('H7').value=`Bom: ${pb}%`;
-  ws2.getCell('H8').value=`Regular: ${pm}%`;
-  ws2.getCell('H9').value=`Crítico: ${pc}%`;
+    // Exportação XLSX
+    async function exportXLSX(){
+      const GREEN='8BC34A', YELLOW='FFEB3B', RED='F44336', GRAY='E0E0E0';
+      const wb=new ExcelJS.Workbook();
 
-  const pie = makePiePNG(pb,pm,pc);
-  const pieId = wb.addImage({base64:pie.split(',')[1],extension:'png'});
+      // ABA 1 – COLETA
+      const ws1=wb.addWorksheet('Coleta',{properties:{defaultRowHeight:20}});
+      const header=["rodoviaUF","secao","km","status(1=Bom,2=Reg,3=Cri)","observacao","foto1","foto2","foto3"];
+      const headRow=ws1.addRow(header);
+      headRow.eachCell(c=>{
+        c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF0B3D91'}};
+        c.font={color:{argb:'FFFFFFFF'},bold:true};
+        c.alignment={vertical:'middle',horizontal:'center'};
+        c.border={top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
+      });
+      [18,16,10,16,36,18,18,18].forEach((w,i)=>ws1.getColumn(i+1).width=w);
 
-  const chartTopRow = startRow + sentidos.length + 4;
-  ws2.addImage(pieId,{
-    tl:{col:2,row:chartTopRow-1},
-    ext:{width:260,height:180}
-  });
+      const kms = range(state.kmStart, state.kmEnd);
+      const sentidos = getSecoes();
 
-  const buf=await wb.xlsx.writeBuffer();
-  saveAs(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),'retigrafico.xlsx');
-}
+      sentidos.forEach(secao=>{
+        kms.forEach(km=>{
+          const dataSec = state.data[secao] || {};
+          const ponto = dataSec[km] || { status:null, obs:'', photos:[] };
+          const status = ponto.status || '';
+          const obs = (ponto.obs || '').replace(/\"/g,'\"\"');
+          const photos = ponto.photos || [];
 
-// ações
-function actions(){
-  document.getElementById('btnGerar').onclick=()=>{
-    let _ks=parseInt(document.getElementById('kmStart').value,10);
-    let _ke=parseInt(document.getElementById('kmEnd').value,10);
-    if(isNaN(_ks)||isNaN(_ke)){alert('Preencha KM Inicial e KM Final.'); return;}
-    state.kmStart=_ks; state.kmEnd=_ke; state.rodoviaUF=document.getElementById('rodoviaUF').value;
-    const selected=Array.from(document.querySelectorAll('#sentidosBox input[type=checkbox]:checked')).map(i=>i.value);
-    if(selected.length===0){ alert('Selecione pelo menos um sentido.'); return; }
-    state.selectedSecoes = selected;
-    save(); renderAll();
-  };
-  document.getElementById('rodoviaUF').onchange=()=>{state.rodoviaUF=document.getElementById('rodoviaUF').value;save()};
-  document.getElementById('btnExportCSV').onclick=exportCSV;
-  document.getElementById('btnExportXLSX').onclick=exportXLSX;
-  document.getElementById('btnReset').onclick=clearAll;
-  document.getElementById('kmStart').onchange=()=>{state.kmStart=parseInt(document.getElementById('kmStart').value,10)||0;save();renderAll();}
-  document.getElementById('kmEnd').onchange=()=>{state.kmEnd=parseInt(document.getElementById('kmEnd').value,10)||0;save();renderAll();}
-}
+          const row=ws1.addRow([
+            state.rodoviaUF || '',
+            secao,
+            km,
+            status,
+            obs,
+            photos[0] || '',
+            photos[1] || '',
+            photos[2] || ''
+          ]);
 
-function clearAll(){
-  if(!confirm('Limpar todos os dados do retigráfico?')) return;
-  state={kmStart:0,kmEnd:0,rodoviaUF:'',selectedSecoes:[],data:{}};
-  save(); renderAll(); document.getElementById('rodoviaUF').value='';document.getElementById('kmStart').value='';document.getElementById('kmEnd').value='';
-  renderSentidosBox();
-}
+          row.height=76;
+          row.eachCell(c=>{
+            c.border={top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
+            c.alignment={vertical:'middle',horizontal:(c.col==3||c.col==4)?'center':'left'};
+          });
 
-function renderAll(){
-  document.getElementById('rodoviaUF').value=state.rodoviaUF||'';
-  renderSentidosBox();
-  const kms=range(state.kmStart,state.kmEnd);
-  getSecoes().forEach(s=>kms.forEach(k=>ensure(s,k)));
-  renderTable(); renderHeat(); renderStats();
-}
+          for(let f=0;f<3;f++){
+            const dataURL = photos[f];
+            if(!dataURL) continue;
+            const base64 = dataURL.includes(',') ? dataURL.split(',')[1] : dataURL;
+            const imgId = wb.addImage({base64,extension:'jpeg'});
+            const col = 6 + f; // F,G,H
+            ws1.addImage(imgId,{
+              tl:{col:col-1+0.12,row:row.number-1+0.20},
+              ext:{width:110,height:72}
+            });
+          }
+        });
+      });
 
-if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('./sw.js').catch(()=>{})})}
-load(); actions(); renderAll();
-</script>
+      // ABA 2 – RETIGRÁFICO
+      const ws2=wb.addWorksheet('Retigrafico',{properties:{defaultRowHeight:18}});
+      ws2.getCell('A1').value='Rodovia/UF';
+      ws2.getCell('B1').value=state.rodoviaUF||'';
+      ws2.getRow(1).font={bold:true};
+      ws2.getColumn(1).width=14;
+      ws2.getColumn(2).width=20;
+
+      ws2.getCell('A3').value='Legenda';
+      const legend=[
+        {col:'B',label:'1',name:'Bom',color:GREEN},
+        {col:'D',label:'2',name:'Regular',color:YELLOW},
+        {col:'F',label:'3',name:'Crítico',color:RED}
+      ];
+      legend.forEach(L=>{
+        const cNum = ws2.getCell(`${L.col}2`);
+        cNum.value=L.label;
+        cNum.font={bold:true};
+        cNum.alignment={horizontal:'center',vertical:'middle'};
+        cNum.fill={type:'pattern',pattern:'solid',fgColor:{argb:L.color}};
+        cNum.border={top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
+
+        const cName = ws2.getCell(`${L.col}3`);
+        cName.value=L.name;
+      });
+
+      const headerRow = 6;
+      ws2.getCell(headerRow,1).value='Sentido';
+      ws2.getRow(headerRow).font={bold:true};
+
+      const colOffset = 2;
+      kms.forEach((km,idx)=>{
+        const col = colOffset + idx;
+        const cell = ws2.getCell(headerRow,col);
+        cell.value = km;
+        cell.alignment={horizontal:'center',vertical:'middle',textRotation:90};
+        cell.border={top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
+        ws2.getColumn(col).width=4;
+      });
+      ws2.getColumn(1).width=18;
+
+      const startRow = headerRow + 1;
+
+      sentidos.forEach((secao,rIdx)=>{
+        const rowNum = startRow + rIdx;
+        const cSentido = ws2.getCell(rowNum,1);
+        cSentido.value = secao;
+        cSentido.font={bold:true};
+        cSentido.alignment={vertical:'middle',horizontal:'left'};
+        cSentido.border={top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
+
+        kms.forEach((km,idx)=>{
+          const col = colOffset + idx;
+          const cell = ws2.getCell(rowNum,col);
+          const ponto = (state.data[secao] && state.data[secao][km]) || {};
+          const v = ponto.status;
+
+          let fill = GRAY;
+          if(v===1) fill = GREEN;
+          else if(v===2) fill = YELLOW;
+          else if(v===3) fill = RED;
+
+          if(v) cell.value = v;
+          cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:fill}};
+          cell.alignment={horizontal:'center',vertical:'middle'};
+          cell.border={top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
+          ws2.getRow(rowNum).height=22;
+        });
+      });
+
+      // ESTATÍSTICAS
+      let total=0,b=0,m=0,c=0;
+      sentidos.forEach(secao=>{
+        kms.forEach(km=>{
+          const ponto = state.data[secao] && state.data[secao][km];
+          if(!ponto || !ponto.status) return;
+          const v = ponto.status;
+          if(v===1) b++;
+          else if(v===2) m++;
+          else if(v===3) c++;
+          if(v) total++;
+        });
+      });
+      const pb = total?Math.round(100*b/total):0;
+      const pm = total?Math.round(100*m/total):0;
+      const pc = total?Math.round(100*c/total):0;
+
+      ws2.getCell('H6').value='Percentuais';
+      ws2.getCell('H6').font={bold:true};
+      ws2.getCell('H7').value=`Bom: ${pb}%`;
+      ws2.getCell('H8').value=`Regular: ${pm}%`;
+      ws2.getCell('H9').value=`Crítico: ${pc}%`;
+
+      const pie = makePiePNG(pb,pm,pc);
+      const pieId = wb.addImage({base64:pie.split(',')[1],extension:'png'});
+
+      const chartTopRow = startRow + sentidos.length + 4;
+      ws2.addImage(pieId,{
+        tl:{col:2,row:chartTopRow-1},
+        ext:{width:260,height:180}
+      });
+
+      const buf=await wb.xlsx.writeBuffer();
+      saveAs(new Blob([buf],{
+        type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      }),'retigrafico.xlsx');
+    }
+
+    function actions(){
+      document.getElementById('btnGerar').onclick=()=>{
+        let _ks=parseInt(document.getElementById('kmStart').value,10);
+        let _ke=parseInt(document.getElementById('kmEnd').value,10);
+        if(isNaN(_ks)||isNaN(_ke)){
+          alert('Preencha KM Inicial e KM Final.');
+          return;
+        }
+        state.kmStart=_ks;
+        state.kmEnd=_ke;
+        state.rodoviaUF=document.getElementById('rodoviaUF').value;
+
+        const selected=Array.from(
+          document.querySelectorAll('#sentidosBox input[type=checkbox]:checked')
+        ).map(i=>i.value);
+        if(selected.length===0){
+          alert('Selecione pelo menos um sentido.');
+          return;
+        }
+        state.selectedSecoes = selected;
+        save();
+        renderAll();
+      };
+
+      document.getElementById('rodoviaUF').onchange=()=>{
+        state.rodoviaUF=document.getElementById('rodoviaUF').value;
+        save();
+      };
+
+      document.getElementById('btnExportCSV').onclick=exportCSV;
+      document.getElementById('btnExportXLSX').onclick=exportXLSX;
+      document.getElementById('btnReset').onclick=clearAll;
+
+      document.getElementById('kmStart').onchange=()=>{
+        state.kmStart=parseInt(document.getElementById('kmStart').value,10)||0;
+        save();renderAll();
+      };
+      document.getElementById('kmEnd').onchange=()=>{
+        state.kmEnd=parseInt(document.getElementById('kmEnd').value,10)||0;
+        save();renderAll();
+      };
+    }
+
+    function clearAll(){
+      if(!confirm('Limpar todos os dados do retigráfico?')) return;
+      state={kmStart:0,kmEnd:0,rodoviaUF:'',selectedSecoes:[],data:{}};
+      save();
+      renderAll();
+      document.getElementById('rodoviaUF').value='';
+      document.getElementById('kmStart').value='';
+      document.getElementById('kmEnd').value='';
+      renderSentidosBox();
+    }
+
+    function renderAll(){
+      document.getElementById('rodoviaUF').value=state.rodoviaUF||'';
+      renderSentidosBox();
+      const kms=range(state.kmStart,state.kmEnd);
+      getSecoes().forEach(s=>kms.forEach(k=>ensure(s,k)));
+      renderTable();
+      renderHeat();
+      renderStats();
+    }
+
+    if('serviceWorker' in navigator){
+      window.addEventListener('load',()=>{
+        navigator.serviceWorker.register('./sw.js').catch(()=>{});
+      });
+    }
+
+    load();
+    actions();
+    renderAll();
+  </script>
 </body>
 </html>
