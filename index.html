@@ -71,7 +71,6 @@
       white-space:nowrap;
     }
     button.ghost{background:#fff;color:var(--brand);border:1px solid var(--brand)}
-    button.bad{background:#ef4444}
     button.warn{background:#f59e0b;color:#1f2937;border:1px solid #f59e0b}
 
     @media (max-width:768px){
@@ -154,7 +153,6 @@
       box-shadow:0 0 0 3px #E5393577;
     }
 
-    .mini{font-size:12px;color:#475569}
     .photo-thumb{
       width:56px;height:56px;
       object-fit:cover;
@@ -340,7 +338,6 @@
       gap:2px;
     }
 
-    /* Tooltip */
     .tooltip{position:relative;cursor:help}
     .tooltip:hover .tooltip-box{
       opacity:1;
@@ -430,6 +427,12 @@
       <div class="small" style="margin-bottom:6px">
         Defina o status por km e sentido, registre observações e anexe até 3 fotos por ponto.
       </div>
+
+      <!-- Botão de marcar tudo como bom no início da Etapa 2 -->
+      <div class="row" style="margin-bottom:6px;justify-content:flex-end">
+        <button id="btnTudoBom" class="ghost">Marcar tudo como Bom (1)</button>
+      </div>
+
       <div class="table-wrap">
         <table>
           <thead>
@@ -472,7 +475,7 @@
       </div>
     </div>
 
-    <!-- ESTATÍSTICAS + BOTÕES NO RODAPÉ -->
+    <!-- ESTATÍSTICAS + EXPORTAÇÃO NO RODAPÉ -->
     <div class="card" style="margin-top:12px">
       <div class="card-title">
         Estatísticas de Condição
@@ -481,7 +484,6 @@
       <div id="statsWrap"></div>
 
       <div class="row btn-row" style="margin-top:12px;justify-content:flex-end">
-        <button id="btnTudoBom" class="ghost">Marcar tudo como Bom (1)</button>
         <button id="btnExportCSV" class="ghost">Exportar CSV</button>
         <button id="btnExportXLSX">Exportar XLSX</button>
       </div>
@@ -516,19 +518,6 @@
       return state.selectedSecoes && state.selectedSecoes.length
         ? state.selectedSecoes
         : ["Sul","Canteiro Central","Norte"];
-    }
-
-    // km apenas com dados para o HEATMAP (remove espaços inúteis)
-    function getKmsComDados(){
-      const all=range(state.kmStart,state.kmEnd);
-      const sentidos=getSecoes();
-      const usados=all.filter(km =>
-        sentidos.some(sec=>{
-          const p=state.data[sec] && state.data[sec][km];
-          return p && p.status!=null;
-        })
-      );
-      return usados.length ? usados : all;
     }
 
     function renderSentidosBox(){
@@ -631,7 +620,8 @@
               pressTimer=setTimeout(()=>{
                 if(confirm('Remover esta foto?')){
                   ponto.photos.splice(idx,1);
-                  save(); renderAll();
+                  try{save();}catch(e){}
+                  renderAll();
                 }
               },600);
             };
@@ -660,18 +650,17 @@
               if(!file) return;
               const reader=new FileReader();
               reader.onload=async ev=>{
+                const dataUrl = ev.target && ev.target.result;
+                let finalData = dataUrl;
                 try{
-                  const dataUrl=ev.target.result;
-                  const annotated=await annotatePhoto(dataUrl,secao,km);
-                  ponto.photos=ponto.photos||[];
-                  ponto.photos.push(annotated || dataUrl);
-                  save(); renderAll();
+                  finalData = await annotatePhoto(dataUrl,secao,km);
                 }catch(err){
-                  // se der erro, salva a foto original mesmo assim
-                  ponto.photos=ponto.photos||[];
-                  ponto.photos.push(ev.target.result);
-                  save(); renderAll();
+                  console.error('Erro ao anotar foto',err);
                 }
+                ponto.photos = Array.isArray(ponto.photos)?ponto.photos:[];
+                ponto.photos.push(finalData);
+                try{save();}catch(e){}
+                renderAll();
               };
               reader.readAsDataURL(file);
             };
@@ -701,44 +690,39 @@
     }
 
     async function annotatePhoto(dataUrl,secao,km){
-      try{
-        const img=new Image();
-        img.src=dataUrl;
-        await new Promise((res,rej)=>{
-          img.onload=res;
-          img.onerror=rej;
-        });
-        const canvas=document.createElement('canvas');
-        const maxW=1024;
-        const scale=Math.min(1,maxW/img.width);
-        canvas.width=img.width*scale;
-        canvas.height=img.height*scale;
-        const ctx=canvas.getContext('2d');
-        ctx.drawImage(img,0,0,canvas.width,canvas.height);
+      const img=new Image();
+      img.src=dataUrl;
+      await new Promise((res,rej)=>{
+        img.onload=res;
+        img.onerror=rej;
+      });
+      const canvas=document.createElement('canvas');
+      const maxW=1024;
+      const scale=Math.min(1,maxW/img.width);
+      canvas.width=img.width*scale;
+      canvas.height=img.height*scale;
+      const ctx=canvas.getContext('2d');
+      ctx.drawImage(img,0,0,canvas.width,canvas.height);
 
-        const now=new Date();
-        const ts=now.toLocaleString('pt-BR',{hour12:false});
-        const g=await gps();
-        const line1=ts;
-        const line2=g?`${g.lat.toFixed(5)} ${g.lon.toFixed(5)}`:'GPS indisponível';
-        const line3=`Km ${km} - ${secao}`;
+      const now=new Date();
+      const ts=now.toLocaleString('pt-BR',{hour12:false});
+      const g=await gps();
+      const line1=ts;
+      const line2=g?`${g.lat.toFixed(5)} ${g.lon.toFixed(5)}`:'GPS indisponível';
+      const line3=`Km ${km} - ${secao}`;
 
-        const pad=8;
-        const boxH=58;
-        ctx.fillStyle='rgba(15,23,42,0.72)';
-        ctx.fillRect(0,canvas.height-boxH,canvas.width,boxH);
-        ctx.fillStyle='#e5f0ff';
-        ctx.font='12px system-ui';
-        ctx.textBaseline='top';
-        ctx.fillText(line1,pad,canvas.height-boxH+6);
-        ctx.fillText(line2,pad,canvas.height-boxH+22);
-        ctx.fillText(line3,pad,canvas.height-boxH+38);
+      const pad=8;
+      const boxH=58;
+      ctx.fillStyle='rgba(15,23,42,0.72)';
+      ctx.fillRect(0,canvas.height-boxH,canvas.width,boxH);
+      ctx.fillStyle='#e5f0ff';
+      ctx.font='12px system-ui';
+      ctx.textBaseline='top';
+      ctx.fillText(line1,pad,canvas.height-boxH+6);
+      ctx.fillText(line2,pad,canvas.height-boxH+22);
+      ctx.fillText(line3,pad,canvas.height-boxH+38);
 
-        return canvas.toDataURL('image/jpeg',0.8);
-      }catch(e){
-        console.error('Erro ao anotar foto',e);
-        return dataUrl;
-      }
+      return canvas.toDataURL('image/jpeg',0.8);
     }
 
     function openModal(src,secao,km){
@@ -776,7 +760,8 @@
       wrap.innerHTML='';
       if(!state.kmStart && !state.kmEnd) return;
 
-      const kms=getKmsComDados();       // <<< só km com dado
+      // Sempre usa todo o intervalo de KM (como no desktop)
+      const kms=range(state.kmStart,state.kmEnd);
       const sentidos=getSecoes();
 
       const frame=document.createElement('div');
@@ -927,7 +912,6 @@
       setTimeout(()=>URL.revokeObjectURL(a.href),1000);
     }
 
-    // Gráfico de pizza em PNG
     function makePiePNG(pb,pm,pc){
       const c=document.createElement('canvas');
       c.width=420;c.height=300;
@@ -962,7 +946,6 @@
       return c.toDataURL('image/png');
     }
 
-    // Exportação XLSX
     async function exportXLSX(){
       const GREEN='8BC34A', YELLOW='FFEB3B', RED='F44336', GRAY='E0E0E0';
       const wb=new ExcelJS.Workbook();
@@ -1052,9 +1035,8 @@
       ws2.getRow(headerRow).font={bold:true};
 
       const colOffset = 2;
-      const kmsHeat = getKmsComDados(); // mesma lógica do heatmap
 
-      kmsHeat.forEach((km,idx)=>{
+      kms.forEach((km,idx)=>{
         const col = colOffset + idx;
         const cell = ws2.getCell(headerRow,col);
         cell.value = km;
@@ -1074,7 +1056,7 @@
         cSentido.alignment={vertical:'middle',horizontal:'left'};
         cSentido.border={top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
 
-        kmsHeat.forEach((km,idx)=>{
+        kms.forEach((km,idx)=>{
           const col = colOffset + idx;
           const cell = ws2.getCell(rowNum,col);
           const ponto = (state.data[secao] && state.data[secao][km]) || {};
@@ -1093,7 +1075,6 @@
         });
       });
 
-      // ESTATÍSTICAS
       let total=0,b=0,m=0,c=0;
       sentidos.forEach(secao=>{
         kms.forEach(km=>{
@@ -1132,7 +1113,10 @@
     }
 
     function marcarTudoBom(){
-      if(!state.kmStart && !state.kmEnd){alert('Defina KM inicial e final primeiro.');return;}
+      if(!state.kmStart && !state.kmEnd){
+        alert('Defina KM inicial e final primeiro.');
+        return;
+      }
       const kms=range(state.kmStart,state.kmEnd);
       const sentidos=getSecoes();
       sentidos.forEach(sec=>{
@@ -1141,7 +1125,7 @@
           state.data[sec][km].status=1;
         });
       });
-      save();
+      try{save();}catch(e){}
       renderAll();
     }
 
@@ -1222,3 +1206,4 @@
   </script>
 </body>
 </html>
+
