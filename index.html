@@ -594,12 +594,13 @@
             const add=document.createElement('label');
             add.className='photo-empty';
             add.textContent='+ foto';
-            const inp=document.createElement('input');
-            inp.type='file';
-            inp.accept='image/*';
-            inp.capture='environment';
-            inp.style.display='none';
-            inp.onchange=e=>handlePhotoInput(e,ponto,secao,km);
+            const inp = document.createElement('input');
+              inp.type = 'file';
+              inp.accept = 'image/*';   // deixa o navegador decidir câmera/galeria
+                                        // não força capture aqui para evitar problema em Safari
+              inp.style.display = 'none';
+              inp.onchange = (ev) => handlePhotoInput(ev, ponto, secao, km);
+
             add.onclick=()=>inp.click();
             add.appendChild(inp);
             grid.appendChild(add);
@@ -1060,25 +1061,54 @@
       return canvas.toDataURL('image/jpeg',0.9);
     }
 
-    async function handlePhotoInput(e,row,secao,km){
-      const file=e.target.files[0];
-      if(!file) return;
-      if((row.photos||[]).length>=3){
-        alert('Limite de 3 fotos por KM. Exclua uma para adicionar outra.');
-        return;
+async function handlePhotoInput(e,row,secao,km){
+  const file = e.target.files && e.target.files[0];
+  if(!file) return;
+
+  if((row.photos || []).length >= 3){
+    alert('Limite de 3 fotos por KM. Exclua uma para adicionar outra.');
+    e.target.value = '';
+    return;
+  }
+
+  const reader = new FileReader();
+
+  reader.onload = async (ev) => {
+    try {
+      const ts = new Date().toISOString();
+      let gps = null;
+      try {
+        gps = await getCurrentGPS();
+      } catch(_) {
+        gps = null;
       }
-      const reader=new FileReader();
-      reader.onload=async(ev)=>{
-        const ts=new Date().toISOString();
-        const gps=await getCurrentGPS();
-        const annotated=await annotatePhoto(ev.target.result,{gps,ts,km,secao});
-        row.photos=row.photos||[];
-        row.photos.push({data:annotated,ts,gps});
-        save();
-        renderAll();
-      };
-      reader.readAsDataURL(file);
+
+      let annotated;
+      try {
+        annotated = await annotatePhoto(ev.target.result, { gps, ts, km, secao });
+      } catch(_) {
+        // se der erro na anotação, usa a imagem original mesmo
+        annotated = ev.target.result;
+      }
+
+      row.photos = row.photos || [];
+      row.photos.push({ data: annotated, ts, gps });
+      save();
+      renderAll();
+    } finally {
+      // limpa o input para poder tirar outra foto depois
+      e.target.value = '';
     }
+  };
+
+  reader.onerror = () => {
+    alert('Erro ao ler a foto. Tente novamente.');
+    e.target.value = '';
+  };
+
+  reader.readAsDataURL(file);
+}
+
 
     function openModal(src){
       document.getElementById('photoModalImg').src=src;
