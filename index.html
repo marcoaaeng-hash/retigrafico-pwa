@@ -98,7 +98,7 @@
     .small{font-size:12px;color:var(--muted)}
     input[type=checkbox]{width:16px;height:16px}
 
-    /* CHIPS – somente numeral 1/2/3 */
+    /* CHIPS – apenas numeral 1/2/3 */
     .chip{
       padding:6px 10px;
       border-radius:999px;
@@ -427,7 +427,6 @@
         Defina o status por km e sentido, registre observações e anexe até 3 fotos por ponto.
       </div>
 
-      <!-- Botão de marcar tudo como bom no início da Etapa 2 -->
       <div class="row" style="margin-bottom:6px;justify-content:flex-end">
         <button id="btnTudoBom" class="ghost">Marcar tudo como Bom (1)</button>
       </div>
@@ -474,7 +473,7 @@
       </div>
     </div>
 
-    <!-- ESTATÍSTICAS + EXPORTAÇÃO NO RODAPÉ -->
+    <!-- ESTATÍSTICAS + EXPORTAÇÃO -->
     <div class="card" style="margin-top:12px">
       <div class="card-title">
         Estatísticas de Condição
@@ -517,7 +516,6 @@
         if(raw){state=JSON.parse(raw)||state;}
       }catch(e){console.error(e);}
 
-      // migração de "Canteiro Central" para "CC" se existir dado antigo
       if(state.selectedSecoes && state.selectedSecoes.includes('Canteiro Central')){
         state.selectedSecoes = state.selectedSecoes.map(s=>s==='Canteiro Central'?'CC':s);
       }
@@ -564,6 +562,7 @@
       });
     }
 
+    // Tabela de coleta: AGRUPADO POR KM (KM -> sentidos)
     function renderTable(){
       const tbody=document.getElementById('tbody');
       tbody.innerHTML='';
@@ -571,8 +570,8 @@
       const kms=range(state.kmStart,state.kmEnd);
       const sentidos=getSecoes();
 
-      sentidos.forEach(secao=>{
-        kms.forEach(km=>{
+      kms.forEach(km=>{
+        sentidos.forEach(secao=>{
           ensure(secao,km);
           const ponto=state.data[secao][km];
 
@@ -595,7 +594,7 @@
             const div=document.createElement('div');
             div.className=`chip ${cls}`;
             if(ponto.status===val) div.classList.add('active');
-            div.textContent=val; // apenas número
+            div.textContent=val;
             div.onclick=()=>{
               ponto.status=(ponto.status===val?null:val);
               save(); renderAll();
@@ -664,17 +663,25 @@
               reader.onload=async evt=>{
                 const originalData = evt.target && evt.target.result;
                 if(!originalData) return;
-                let finalData = originalData;
-                try{
-                  finalData = await annotatePhoto(originalData,secao,km);
-                }catch(err){
-                  console.error('Erro na anotação da foto',err);
-                  finalData = originalData;
-                }
+
+                // 1) adiciona a foto original imediatamente
                 ponto.photos = Array.isArray(ponto.photos)?ponto.photos:[];
-                ponto.photos.push(finalData);
+                ponto.photos.push(originalData);
                 save();
                 renderAll();
+
+                // 2) tenta gerar versão com tarja e substituir
+                try{
+                  const annotated = await annotatePhoto(originalData,secao,km);
+                  const idx = ponto.photos.indexOf(originalData);
+                  if(idx>=0) ponto.photos[idx]=annotated;
+                  else ponto.photos.push(annotated);
+                  save();
+                  renderAll();
+                }catch(err){
+                  console.error('Erro na anotação da foto, mantendo original.',err);
+                  save();
+                }
               };
               reader.readAsDataURL(file);
             };
@@ -897,8 +904,8 @@
       const kms=range(state.kmStart,state.kmEnd);
       const sentidos=getSecoes();
       const rows=[["rodoviaUF","secao","km","status(1=Bom,2=Reg,3=Cri)","observacao","foto1","foto2","foto3"]];
-      sentidos.forEach(sec=>{
-        kms.forEach(km=>{
+      kms.forEach(km=>{
+        sentidos.forEach(sec=>{
           ensure(sec,km);
           const ponto=state.data[sec][km];
           const status=ponto.status||'';
@@ -983,8 +990,8 @@
       const kms = range(state.kmStart, state.kmEnd);
       const sentidos = getSecoes();
 
-      sentidos.forEach(secao=>{
-        kms.forEach(km=>{
+      kms.forEach(km=>{
+        sentidos.forEach(secao=>{
           const dataSec = state.data[secao] || {};
           const ponto = dataSec[km] || { status:null, obs:'', photos:[] };
           const status = ponto.status || '';
@@ -1048,7 +1055,38 @@
         cName.value=L.name;
       });
 
-      const headerRow = 6;
+      // Estatísticas para percentuais e gráfico (acima do retigráfico)
+      let total=0,b=0,m=0,c=0;
+      sentidos.forEach(secao=>{
+        kms.forEach(km=>{
+          const ponto = state.data[secao] && state.data[secao][km];
+          if(!ponto || !ponto.status) return;
+          const v = ponto.status;
+          if(v===1) b++;
+          else if(v===2) m++;
+          else if(v===3) c++;
+          if(v) total++;
+        });
+      });
+      const pb = total?Math.round(100*b/total):0;
+      const pm = total?Math.round(100*m/total):0;
+      const pc = total?Math.round(100*c/total):0;
+
+      ws2.getCell('H5').value='Percentuais';
+      ws2.getCell('H5').font={bold:true};
+      ws2.getCell('H6').value=`Bom: ${pb}%`;
+      ws2.getCell('H7').value=`Regular: ${pm}%`;
+      ws2.getCell('H8').value=`Crítico: ${pc}%`;
+
+      const pie = makePiePNG(pb,pm,pc);
+      const pieId = wb.addImage({base64:pie.split(',')[1],extension:'png'});
+      ws2.addImage(pieId,{
+        tl:{col:2,row:4}, // acima do retigráfico
+        ext:{width:260,height:180}
+      });
+
+      // HEATMAP MAIS ABAIXO, sem sobrepor nada
+      const headerRow = 17;
       ws2.getCell(headerRow,1).value='Sentido';
       ws2.getRow(headerRow).font={bold:true};
 
@@ -1093,37 +1131,6 @@
         });
       });
 
-      let total=0,b=0,m=0,c=0;
-      sentidos.forEach(secao=>{
-        kms.forEach(km=>{
-          const ponto = state.data[secao] && state.data[secao][km];
-          if(!ponto || !ponto.status) return;
-          const v = ponto.status;
-          if(v===1) b++;
-          else if(v===2) m++;
-          else if(v===3) c++;
-          if(v) total++;
-        });
-      });
-      const pb = total?Math.round(100*b/total):0;
-      const pm = total?Math.round(100*m/total):0;
-      const pc = total?Math.round(100*c/total):0;
-
-      ws2.getCell('H6').value='Percentuais';
-      ws2.getCell('H6').font={bold:true};
-      ws2.getCell('H7').value=`Bom: ${pb}%`;
-      ws2.getCell('H8').value=`Regular: ${pm}%`;
-      ws2.getCell('H9').value=`Crítico: ${pc}%`;
-
-      const pie = makePiePNG(pb,pm,pc);
-      const pieId = wb.addImage({base64:pie.split(',')[1],extension:'png'});
-
-      const chartTopRow = startRow + sentidos.length + 4;
-      ws2.addImage(pieId,{
-        tl:{col:2,row:chartTopRow-1},
-        ext:{width:260,height:180}
-      });
-
       const buf=await wb.xlsx.writeBuffer();
       saveAs(new Blob([buf],{
         type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -1137,8 +1144,8 @@
       }
       const kms=range(state.kmStart,state.kmEnd);
       const sentidos=getSecoes();
-      sentidos.forEach(sec=>{
-        kms.forEach(km=>{
+      kms.forEach(km=>{
+        sentidos.forEach(sec=>{
           ensure(sec,km);
           state.data[sec][km].status=1;
         });
