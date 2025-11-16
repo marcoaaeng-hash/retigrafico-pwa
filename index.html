@@ -317,7 +317,6 @@
       display:block;
     }
     .hidden{display:none;}
-
   </style>
 </head>
 <body>
@@ -437,7 +436,7 @@
     </div>
   </div>
 
-  <!-- Modal de foto (modelo antigo) -->
+  <!-- Modal de foto -->
   <div id="photoModal" class="modal-back hidden">
     <div class="modal-inner">
       <img id="photoModalImg" src="" alt="Foto">
@@ -521,7 +520,7 @@
       });
     }
 
-    // Coleta – agrupado por KM, KM só na primeira linha do bloco
+    // Tabela de coleta – agrupado por KM
     function renderTable(){
       const tbody=document.getElementById('tbody');
       tbody.innerHTML='';
@@ -595,12 +594,10 @@
             add.className='photo-empty';
             add.textContent='+ foto';
             const inp = document.createElement('input');
-              inp.type = 'file';
-              inp.accept = 'image/*';   // deixa o navegador decidir câmera/galeria
-                                        // não força capture aqui para evitar problema em Safari
-              inp.style.display = 'none';
-              inp.onchange = (ev) => handlePhotoInput(ev, ponto, secao, km);
-
+            inp.type = 'file';
+            inp.accept = 'image/*';
+            inp.style.display = 'none';
+            inp.onchange = (ev) => handlePhotoInput(ev, ponto, secao, km);
             add.onclick=()=>inp.click();
             add.appendChild(inp);
             grid.appendChild(add);
@@ -813,7 +810,7 @@
 
       // ABA 1 – COLETA (km mesclado por bloco)
       const ws1=wb.addWorksheet('Coleta',{properties:{defaultRowHeight:20}});
-      const header=["rodoviaUF","km","secao","status(1=Bom,2=Reg,3=Cri)","observacao","foto1","foto2","foto3"];
+      const header=["rodoviaUF","km","secao","status(1=Bom,2=Reg,3,Cri)","observacao","foto1","foto2","foto3"];
       const headRow=ws1.addRow(header);
       headRow.eachCell(c=>{
         c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF0B3D91'}};
@@ -1005,7 +1002,7 @@
       renderAll();
     }
 
-    // --------- FUNÇÕES DE FOTO (modelo antigo que funcionava) ---------
+    // --------- FUNÇÕES DE FOTO ---------
 
     // gps & foto anotada
     function getCurrentGPS(){
@@ -1061,54 +1058,62 @@
       return canvas.toDataURL('image/jpeg',0.9);
     }
 
-async function handlePhotoInput(e,row,secao,km){
-  const file = e.target.files && e.target.files[0];
-  if(!file) return;
+    // NOVA VERSÃO – trata mobile x desktop
+    async function handlePhotoInput(e,row,secao,km){
+      const file = e.target.files && e.target.files[0];
+      if(!file) return;
 
-  if((row.photos || []).length >= 3){
-    alert('Limite de 3 fotos por KM. Exclua uma para adicionar outra.');
-    e.target.value = '';
-    return;
-  }
-
-  const reader = new FileReader();
-
-  reader.onload = async (ev) => {
-    try {
-      const ts = new Date().toISOString();
-      let gps = null;
-      try {
-        gps = await getCurrentGPS();
-      } catch(_) {
-        gps = null;
+      if((row.photos || []).length >= 3){
+        alert('Limite de 3 fotos por KM. Exclua uma para adicionar outra.');
+        e.target.value = '';
+        return;
       }
 
-      let annotated;
-      try {
-        annotated = await annotatePhoto(ev.target.result, { gps, ts, km, secao });
-      } catch(_) {
-        // se der erro na anotação, usa a imagem original mesmo
-        annotated = ev.target.result;
-      }
+      const reader = new FileReader();
 
-      row.photos = row.photos || [];
-      row.photos.push({ data: annotated, ts, gps });
-      save();
-      renderAll();
-    } finally {
-      // limpa o input para poder tirar outra foto depois
-      e.target.value = '';
+      reader.onload = async (ev) => {
+        try {
+          const ts = new Date().toISOString();
+          let gps = null;
+          try {
+            gps = await getCurrentGPS();
+          } catch(_) {
+            gps = null;
+          }
+
+          const ua = navigator.userAgent || '';
+          const isMobile = /Android|iPhone|iPad|iPod/i.test(ua);
+
+          let finalData;
+
+          if (isMobile) {
+            // iOS / Android: salva a foto direto, sem canvas
+            finalData = ev.target.result;
+          } else {
+            // Desktop: mantém anotação com data/hora/GPS
+            try {
+              finalData = await annotatePhoto(ev.target.result, { gps, ts, km, secao });
+            } catch(_) {
+              finalData = ev.target.result;
+            }
+          }
+
+          row.photos = row.photos || [];
+          row.photos.push({ data: finalData, ts, gps });
+          save();
+          renderAll();
+        } finally {
+          e.target.value = '';
+        }
+      };
+
+      reader.onerror = () => {
+        alert('Erro ao ler a foto. Tente novamente.');
+        e.target.value = '';
+      };
+
+      reader.readAsDataURL(file);
     }
-  };
-
-  reader.onerror = () => {
-    alert('Erro ao ler a foto. Tente novamente.');
-    e.target.value = '';
-  };
-
-  reader.readAsDataURL(file);
-}
-
 
     function openModal(src){
       document.getElementById('photoModalImg').src=src;
