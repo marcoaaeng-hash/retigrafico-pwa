@@ -5,13 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Retigráfico de Roçada</title>
 
+  <!-- Manifesto PWA -->
   <link rel="manifest" href="manifest.webmanifest">
 
+  <!-- iOS / Tela inicial -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Retigráfico">
   <link rel="apple-touch-icon" href="icon-512.png">
 
+  <!-- Bibliotecas para exportação -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
@@ -28,8 +31,6 @@
       --bg:#f8fafc;
       --card:#ffffff;
       --radius:16px;
-      --kmA:#e0f2ff;   /* azul bem claro */
-      --kmB:#ffffff;
     }
     *{box-sizing:border-box}
     body{
@@ -197,6 +198,7 @@
       top:0;
       z-index:1;
     }
+    tr:nth-child(even){background:#f9fafb}
     .status-cell{min-width:150px}
     .obs-input{
       width:100%;
@@ -205,7 +207,6 @@
       padding:6px 8px;
       font-size:13px;
     }
-
     .heat-grid{
       display:grid;
       gap:1px;
@@ -434,11 +435,11 @@
         <table>
           <thead>
             <tr>
-              <th>KM</th>
               <th>Sentido</th>
+              <th>KM</th>
               <th class="status-cell">Status (1=Bom, 2=Regular, 3=Crítico)</th>
+              <th>Observação</th>
               <th>Fotos</th>
-              <th>Observações</th>
             </tr>
           </thead>
           <tbody id="tbody"></tbody>
@@ -490,7 +491,7 @@
   <div id="modalRoot"></div>
 
   <script>
-    const STORAGE_KEY='retigrafico_v40';
+    const STORAGE_KEY='retigrafico_v39';
     let state={kmStart:0,kmEnd:0,rodoviaUF:'',selectedSecoes:[],data:{}};
 
     function range(a,b){
@@ -561,7 +562,7 @@
       });
     }
 
-    // Tabela de coleta: agrupado por KM, com faixas azul/ branco
+    // Tabela de coleta: AGRUPADO POR KM (KM -> sentidos)
     function renderTable(){
       const tbody=document.getElementById('tbody');
       tbody.innerHTML='';
@@ -569,23 +570,20 @@
       const kms=range(state.kmStart,state.kmEnd);
       const sentidos=getSecoes();
 
-      kms.forEach((km,kmIndex)=>{
-        const bg = kmIndex % 2 === 0 ? 'var(--kmA)' : 'var(--kmB)';
-
+      kms.forEach(km=>{
         sentidos.forEach(secao=>{
           ensure(secao,km);
           const ponto=state.data[secao][km];
 
           const tr=document.createElement('tr');
-          tr.style.backgroundColor = bg;
-
-          const tdKm=document.createElement('td');
-          tdKm.textContent=km;
-          tr.appendChild(tdKm);
 
           const tdSec=document.createElement('td');
           tdSec.textContent=secao;
           tr.appendChild(tdSec);
+
+          const tdKm=document.createElement('td');
+          tdKm.textContent=km;
+          tr.appendChild(tdKm);
 
           const tdStatus=document.createElement('td');
           tdStatus.className='status-cell';
@@ -608,6 +606,15 @@
           rowStatus.appendChild(mkChip(3,'bad'));
           tdStatus.appendChild(rowStatus);
           tr.appendChild(tdStatus);
+
+          const tdObs=document.createElement('td');
+          const inputObs=document.createElement('input');
+          inputObs.className='obs-input';
+          inputObs.placeholder='Observações de campo, restrições, interferências...';
+          inputObs.value=ponto.obs||'';
+          inputObs.onchange=()=>{ponto.obs=inputObs.value;save();};
+          tdObs.appendChild(inputObs);
+          tr.appendChild(tdObs);
 
           const tdFotos=document.createElement('td');
           const wrap=document.createElement('div');
@@ -657,16 +664,13 @@
                 const originalData = evt.target && evt.target.result;
                 if(!originalData) return;
 
-                // Sempre salva original (garante foto no Android)
+                // 1) adiciona a foto original imediatamente
                 ponto.photos = Array.isArray(ponto.photos)?ponto.photos:[];
                 ponto.photos.push(originalData);
                 save();
                 renderAll();
 
-                // Em navegadores não-Android, tenta gerar versão com tarja
-                const isAndroid = /Android/i.test(navigator.userAgent || '');
-                if(isAndroid) return;
-
+                // 2) tenta gerar versão com tarja e substituir
                 try{
                   const annotated = await annotatePhoto(originalData,secao,km);
                   const idx = ponto.photos.indexOf(originalData);
@@ -689,15 +693,6 @@
           wrap.appendChild(grid);
           tdFotos.appendChild(wrap);
           tr.appendChild(tdFotos);
-
-          const tdObs=document.createElement('td');
-          const inputObs=document.createElement('input');
-          inputObs.className='obs-input';
-          inputObs.placeholder='Observações de campo, restrições, interferências...';
-          inputObs.value=ponto.obs||'';
-          inputObs.onchange=()=>{ponto.obs=inputObs.value;save();};
-          tdObs.appendChild(inputObs);
-          tr.appendChild(tdObs);
 
           tbody.appendChild(tr);
         });
@@ -908,7 +903,7 @@
     function rowsCSV(){
       const kms=range(state.kmStart,state.kmEnd);
       const sentidos=getSecoes();
-      const rows=[["rodoviaUF","km","secao","status(1=Bom,2=Reg,3=Cri)","observacao","foto1","foto2","foto3"]];
+      const rows=[["rodoviaUF","secao","km","status(1=Bom,2=Reg,3=Cri)","observacao","foto1","foto2","foto3"]];
       kms.forEach(km=>{
         sentidos.forEach(sec=>{
           ensure(sec,km);
@@ -918,8 +913,8 @@
           const photos=ponto.photos||[];
           rows.push([
             state.rodoviaUF||'',
-            km,
             sec,
+            km,
             status,
             obs,
             photos[0]||'',
@@ -944,7 +939,7 @@
 
     function makePiePNG(pb,pm,pc){
       const c=document.createElement('canvas');
-      c.width=360;c.height=200;
+      c.width=420;c.height=300;
       const ctx=c.getContext('2d');
       const data=[pb,pm,pc];
       const colors=['#8BC34A','#FFEB3B','#F44336'];
@@ -955,8 +950,8 @@
       data.forEach((v,i)=>{
         const angle=(v/total)*Math.PI*2;
         ctx.beginPath();
-        ctx.moveTo(110,110);
-        ctx.arc(110,110,80,start,start+angle);
+        ctx.moveTo(150,140);
+        ctx.arc(150,140,110,start,start+angle);
         ctx.closePath();
         ctx.fillStyle=colors[i];
         ctx.fill();
@@ -968,9 +963,9 @@
       ctx.textBaseline='top';
       labels.forEach((lab,i)=>{
         ctx.fillStyle=colors[i];
-        ctx.fillRect(220,40+i*22,14,14);
+        ctx.fillRect(290,70+i*24,14,14);
         ctx.fillStyle='#0f172a';
-        ctx.fillText(`${lab} (${data[i]}%)`,240,38+i*22);
+        ctx.fillText(`${lab} (${data[i]}%)`,310,68+i*24);
       });
 
       return c.toDataURL('image/png');
@@ -980,9 +975,9 @@
       const GREEN='8BC34A', YELLOW='FFEB3B', RED='F44336', GRAY='E0E0E0';
       const wb=new ExcelJS.Workbook();
 
-      // ABA 1 – COLETA (km primeiro, depois secao)
+      // ABA 1 – COLETA
       const ws1=wb.addWorksheet('Coleta',{properties:{defaultRowHeight:20}});
-      const header=["rodoviaUF","km","secao","status(1=Bom,2=Reg,3=Cri)","observacao","foto1","foto2","foto3"];
+      const header=["rodoviaUF","secao","km","status(1=Bom,2=Reg,3=Cri)","observacao","foto1","foto2","foto3"];
       const headRow=ws1.addRow(header);
       headRow.eachCell(c=>{
         c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF0B3D91'}};
@@ -990,7 +985,7 @@
         c.alignment={vertical:'middle',horizontal:'center'};
         c.border={top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
       });
-      [18,10,16,16,36,18,18,18].forEach((w,i)=>ws1.getColumn(i+1).width=w);
+      [18,16,10,16,36,18,18,18].forEach((w,i)=>ws1.getColumn(i+1).width=w);
 
       const kms = range(state.kmStart, state.kmEnd);
       const sentidos = getSecoes();
@@ -1005,8 +1000,8 @@
 
           const row=ws1.addRow([
             state.rodoviaUF || '',
-            km,
             secao,
+            km,
             status,
             obs,
             photos[0] || '',
@@ -1017,7 +1012,7 @@
           row.height=76;
           row.eachCell(c=>{
             c.border={top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
-            c.alignment={vertical:'middle',horizontal:(c.col==2||c.col==3||c.col==4)?'center':'left'};
+            c.alignment={vertical:'middle',horizontal:(c.col==3||c.col==4)?'center':'left'};
           });
 
           for(let f=0;f<3;f++){
@@ -1033,23 +1028,6 @@
           }
         });
       });
-
-      // Estatísticas globais
-      let total=0,b=0,m=0,c=0;
-      sentidos.forEach(secao=>{
-        kms.forEach(km=>{
-          const ponto = state.data[secao] && state.data[secao][km];
-          if(!ponto || !ponto.status) return;
-          const v = ponto.status;
-          if(v===1) b++;
-          else if(v===2) m++;
-          else if(v===3) c++;
-          if(v) total++;
-        });
-      });
-      const pb = total?Math.round(100*b/total):0;
-      const pm = total?Math.round(100*m/total):0;
-      const pc = total?Math.round(100*c/total):0;
 
       // ABA 2 – RETIGRÁFICO
       const ws2=wb.addWorksheet('Retigrafico',{properties:{defaultRowHeight:18}});
@@ -1077,7 +1055,23 @@
         cName.value=L.name;
       });
 
-      // Percentuais e gráfico acima do retigráfico, lado a lado
+      // Estatísticas para percentuais e gráfico (acima do retigráfico)
+      let total=0,b=0,m=0,c=0;
+      sentidos.forEach(secao=>{
+        kms.forEach(km=>{
+          const ponto = state.data[secao] && state.data[secao][km];
+          if(!ponto || !ponto.status) return;
+          const v = ponto.status;
+          if(v===1) b++;
+          else if(v===2) m++;
+          else if(v===3) c++;
+          if(v) total++;
+        });
+      });
+      const pb = total?Math.round(100*b/total):0;
+      const pm = total?Math.round(100*m/total):0;
+      const pc = total?Math.round(100*c/total):0;
+
       ws2.getCell('H5').value='Percentuais';
       ws2.getCell('H5').font={bold:true};
       ws2.getCell('H6').value=`Bom: ${pb}%`;
@@ -1087,11 +1081,11 @@
       const pie = makePiePNG(pb,pm,pc);
       const pieId = wb.addImage({base64:pie.split(',')[1],extension:'png'});
       ws2.addImage(pieId,{
-        tl:{col:2,row:4},      // B5 aprox
-        ext:{width:220,height:160}
+        tl:{col:2,row:4}, // acima do retigráfico
+        ext:{width:260,height:180}
       });
 
-      // RETIGRÁFICO mais abaixo
+      // HEATMAP MAIS ABAIXO, sem sobrepor nada
       const headerRow = 17;
       ws2.getCell(headerRow,1).value='Sentido';
       ws2.getRow(headerRow).font={bold:true};
