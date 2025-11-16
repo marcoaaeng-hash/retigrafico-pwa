@@ -98,22 +98,22 @@
     .small{font-size:12px;color:var(--muted)}
     input[type=checkbox]{width:16px;height:16px}
 
-    /* CHIPS DE STATUS */
+    /* CHIPS – somente numeral 1/2/3 */
     .chip{
-      padding:6px 12px;
+      padding:6px 10px;
       border-radius:999px;
       border:2px solid #d1d5db;
       background:#f3f4f6;
-      color:#374151;
+      color:#111827;
       font-size:13px;
-      font-weight:600;
+      font-weight:700;
       cursor:pointer;
       display:inline-flex;
       align-items:center;
-      gap:6px;
+      justify-content:center;
+      min-width:34px;
       transition:transform .08s, box-shadow .08s, border-color .08s, background .08s, color .08s;
     }
-    /* Não selecionado */
     .chip.ok{
       background:#e6f4d8;
       border-color:#c5e1a5;
@@ -129,7 +129,6 @@
       border-color:#ef9a9a;
       color:#7a0000;
     }
-    /* Ativo */
     .chip.active{
       transform:scale(1.06);
       box-shadow:0 0 0 3px #00000018;
@@ -200,7 +199,7 @@
       z-index:1;
     }
     tr:nth-child(even){background:#f9fafb}
-    .status-cell{min-width:170px}
+    .status-cell{min-width:150px}
     .obs-input{
       width:100%;
       border-radius:10px;
@@ -493,7 +492,7 @@
   <div id="modalRoot"></div>
 
   <script>
-    const STORAGE_KEY='retigrafico_v38';
+    const STORAGE_KEY='retigrafico_v39';
     let state={kmStart:0,kmEnd:0,rodoviaUF:'',selectedSecoes:[],data:{}};
 
     function range(a,b){
@@ -506,24 +505,37 @@
       state.data[secao][km]??={status:null,obs:'',photos:[]};
     }
     function save(){
-      localStorage.setItem(STORAGE_KEY,JSON.stringify(state));
+      try{
+        localStorage.setItem(STORAGE_KEY,JSON.stringify(state));
+      }catch(e){
+        console.error('Erro ao salvar no localStorage',e);
+      }
     }
     function load(){
       try{
         const raw=localStorage.getItem(STORAGE_KEY);
         if(raw){state=JSON.parse(raw)||state;}
       }catch(e){console.error(e);}
+
+      // migração de "Canteiro Central" para "CC" se existir dado antigo
+      if(state.selectedSecoes && state.selectedSecoes.includes('Canteiro Central')){
+        state.selectedSecoes = state.selectedSecoes.map(s=>s==='Canteiro Central'?'CC':s);
+      }
+      if(state.data && state.data['Canteiro Central']){
+        state.data['CC'] = state.data['CC'] || state.data['Canteiro Central'];
+        delete state.data['Canteiro Central'];
+      }
     }
     function getSecoes(){
       return state.selectedSecoes && state.selectedSecoes.length
         ? state.selectedSecoes
-        : ["Sul","Canteiro Central","Norte"];
+        : ["Sul","CC","Norte"];
     }
 
     function renderSentidosBox(){
       const box=document.getElementById('sentidosBox');
       box.innerHTML='';
-      const sentidos=["Sul","Canteiro Central","Norte","Leste","Oeste"];
+      const sentidos=["Sul","CC","Norte","Leste","Oeste"];
       sentidos.forEach(s=>{
         const id='sent_'+s.replace(/\s+/g,'_');
         const wrap=document.createElement('label');
@@ -579,20 +591,20 @@
           const rowStatus=document.createElement('div');
           rowStatus.className='row';
 
-          const mkChip=(label,val,cls)=>{
+          const mkChip=(val,cls)=>{
             const div=document.createElement('div');
             div.className=`chip ${cls}`;
             if(ponto.status===val) div.classList.add('active');
-            div.innerHTML=`<span>${val}</span><span>${label}</span>`;
+            div.textContent=val; // apenas número
             div.onclick=()=>{
               ponto.status=(ponto.status===val?null:val);
               save(); renderAll();
             };
             return div;
           };
-          rowStatus.appendChild(mkChip('Bom',1,'ok'));
-          rowStatus.appendChild(mkChip('Regular',2,'mid'));
-          rowStatus.appendChild(mkChip('Crítico',3,'bad'));
+          rowStatus.appendChild(mkChip(1,'ok'));
+          rowStatus.appendChild(mkChip(2,'mid'));
+          rowStatus.appendChild(mkChip(3,'bad'));
           tdStatus.appendChild(rowStatus);
           tr.appendChild(tdStatus);
 
@@ -620,7 +632,7 @@
               pressTimer=setTimeout(()=>{
                 if(confirm('Remover esta foto?')){
                   ponto.photos.splice(idx,1);
-                  try{save();}catch(e){}
+                  save();
                   renderAll();
                 }
               },600);
@@ -646,20 +658,22 @@
             inp.capture='environment';
             inp.style.display='none';
             inp.onchange=e=>{
-              const file=e.target.files[0];
+              const file=e.target.files && e.target.files[0];
               if(!file) return;
               const reader=new FileReader();
-              reader.onload=async ev=>{
-                const dataUrl = ev.target && ev.target.result;
-                let finalData = dataUrl;
+              reader.onload=async evt=>{
+                const originalData = evt.target && evt.target.result;
+                if(!originalData) return;
+                let finalData = originalData;
                 try{
-                  finalData = await annotatePhoto(dataUrl,secao,km);
+                  finalData = await annotatePhoto(originalData,secao,km);
                 }catch(err){
-                  console.error('Erro ao anotar foto',err);
+                  console.error('Erro na anotação da foto',err);
+                  finalData = originalData;
                 }
                 ponto.photos = Array.isArray(ponto.photos)?ponto.photos:[];
                 ponto.photos.push(finalData);
-                try{save();}catch(e){}
+                save();
                 renderAll();
               };
               reader.readAsDataURL(file);
@@ -690,39 +704,44 @@
     }
 
     async function annotatePhoto(dataUrl,secao,km){
-      const img=new Image();
-      img.src=dataUrl;
-      await new Promise((res,rej)=>{
-        img.onload=res;
-        img.onerror=rej;
-      });
-      const canvas=document.createElement('canvas');
-      const maxW=1024;
-      const scale=Math.min(1,maxW/img.width);
-      canvas.width=img.width*scale;
-      canvas.height=img.height*scale;
-      const ctx=canvas.getContext('2d');
-      ctx.drawImage(img,0,0,canvas.width,canvas.height);
+      try{
+        const img=new Image();
+        img.src=dataUrl;
+        await new Promise((res,rej)=>{
+          img.onload=res;
+          img.onerror=rej;
+        });
+        const canvas=document.createElement('canvas');
+        const maxW=1024;
+        const scale=Math.min(1,maxW/img.width);
+        canvas.width=img.width*scale;
+        canvas.height=img.height*scale;
+        const ctx=canvas.getContext('2d');
+        ctx.drawImage(img,0,0,canvas.width,canvas.height);
 
-      const now=new Date();
-      const ts=now.toLocaleString('pt-BR',{hour12:false});
-      const g=await gps();
-      const line1=ts;
-      const line2=g?`${g.lat.toFixed(5)} ${g.lon.toFixed(5)}`:'GPS indisponível';
-      const line3=`Km ${km} - ${secao}`;
+        const now=new Date();
+        const ts=now.toLocaleString('pt-BR',{hour12:false});
+        const g=await gps();
+        const line1=ts;
+        const line2=g?`${g.lat.toFixed(5)} ${g.lon.toFixed(5)}`:'GPS indisponível';
+        const line3=`Km ${km} - ${secao}`;
 
-      const pad=8;
-      const boxH=58;
-      ctx.fillStyle='rgba(15,23,42,0.72)';
-      ctx.fillRect(0,canvas.height-boxH,canvas.width,boxH);
-      ctx.fillStyle='#e5f0ff';
-      ctx.font='12px system-ui';
-      ctx.textBaseline='top';
-      ctx.fillText(line1,pad,canvas.height-boxH+6);
-      ctx.fillText(line2,pad,canvas.height-boxH+22);
-      ctx.fillText(line3,pad,canvas.height-boxH+38);
+        const pad=8;
+        const boxH=58;
+        ctx.fillStyle='rgba(15,23,42,0.72)';
+        ctx.fillRect(0,canvas.height-boxH,canvas.width,boxH);
+        ctx.fillStyle='#e5f0ff';
+        ctx.font='12px system-ui';
+        ctx.textBaseline='top';
+        ctx.fillText(line1,pad,canvas.height-boxH+6);
+        ctx.fillText(line2,pad,canvas.height-boxH+22);
+        ctx.fillText(line3,pad,canvas.height-boxH+38);
 
-      return canvas.toDataURL('image/jpeg',0.8);
+        return canvas.toDataURL('image/jpeg',0.8);
+      }catch(e){
+        console.error('Falha ao processar foto, usando original.',e);
+        return dataUrl;
+      }
     }
 
     function openModal(src,secao,km){
@@ -760,7 +779,6 @@
       wrap.innerHTML='';
       if(!state.kmStart && !state.kmEnd) return;
 
-      // Sempre usa todo o intervalo de KM (como no desktop)
       const kms=range(state.kmStart,state.kmEnd);
       const sentidos=getSecoes();
 
@@ -1125,7 +1143,7 @@
           state.data[sec][km].status=1;
         });
       });
-      try{save();}catch(e){}
+      save();
       renderAll();
     }
 
